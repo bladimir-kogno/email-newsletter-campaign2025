@@ -114,27 +114,57 @@
       this.render();
     }
 
-    sendCampaign(id) {
-      const campaign = this.campaigns.find(c => c.id === id);
-      if (!campaign) return;
+   async sendCampaign(id) {
+    const campaign = this.campaigns.find(c => c.id === id);
+    if (!campaign) return;
 
-      // Simulate sending (in real implementation, this would call your email service API)
-      const activeSubscribers = this.subscribers.filter(s => s.status === 'active');
-
-      setTimeout(() => {
-        this.updateCampaign(id, {
-          status: 'sent',
-          sentCount: activeSubscribers.length,
-          dateSent: new Date().toISOString()
-        });
-        alert(`Campaign sent to ${activeSubscribers.length} subscribers!`);
-        this.render();
-      }, 1000);
-
-      // Update UI immediately
-      this.updateCampaign(id, { status: 'sending' });
-      this.render();
+    const activeSubscribers = this.subscribers.filter(s => s.status === 'active');
+    
+    if (activeSubscribers.length === 0) {
+        alert('No active subscribers to send to!');
+        return;
     }
+
+    if (!confirm(`Send "${campaign.title}" to ${activeSubscribers.length} subscribers?`)) {
+        return;
+    }
+
+    this.updateCampaign(id, { status: 'sending' });
+    this.render();
+
+    try {
+        const response = await fetch('/api/send-email', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                recipients: activeSubscribers,
+                subject: campaign.subject,
+                content: campaign.content
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            this.updateCampaign(id, {
+                status: 'sent',
+                sentCount: result.sent,
+                dateSent: new Date().toISOString()
+            });
+            alert(`Campaign sent to ${result.sent} subscribers!`);
+        } else {
+            throw new Error(result.error || 'Failed to send campaign');
+        }
+    } catch (error) {
+        console.error('Send error:', error);
+        this.updateCampaign(id, { status: 'draft' });
+        alert(`Failed to send: ${error.message}`);
+    }
+
+    this.render();
+}
 
     // Render methods
     render() {
