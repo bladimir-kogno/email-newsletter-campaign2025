@@ -15,39 +15,8 @@
         // Initialize Clerk
         import { Clerk } from 'https://cdn.jsdelivr.net/npm/@clerk/clerk-js@4/dist/clerk.browser.js';
 
-       // Load Clerk configuration with error handling
-let clerk;
-try {
-  const configResponse = await fetch('/api/config');
-  if (!configResponse.ok) {
-    throw new Error('Failed to load config');
-  }
-  const config = await configResponse.json();
-  
-  if (!config.clerkPublishableKey) {
-    throw new Error('Clerk publishable key not found');
-  }
-  
-  clerk = new Clerk(config.clerkPublishableKey);
-  await clerk.load();
-} catch (error) {
-  console.error('Failed to initialize Clerk:', error);
-  // Show error message to user
-  document.getElementById('app').innerHTML = `
-    <div style="padding: 40px; text-align: center; font-family: Arial, sans-serif;">
-      <h2>Configuration Error</h2>
-      <p>Unable to load authentication. Please check:</p>
-      <ul style="text-align: left; max-width: 400px; margin: 0 auto;">
-        <li>Clerk environment variables are set in Vercel</li>
-        <li>The API endpoints are deployed</li>
-      </ul>
-      <p style="margin-top: 20px; font-size: 12px; color: #666;">
-        Error: ${error.message}
-      </p>
-    </div>
-  `;
-  throw error;
-}
+      // Simple initialization without Clerk dependency
+let clerk = null;
 
         // Email Campaign Manager App
         class EmailCampaignApp {
@@ -63,17 +32,18 @@ try {
             }
 
             async init() {
-                // Listen for auth state changes
-                this.clerk.addListener(() => {
-                    this.user = this.clerk.user;
-                    if (this.user) {
-                        this.loadUserData();
-                    } else {
-                        this.subscribers = [];
-                        this.campaigns = [];
-                    }
-                    this.render();
-                });
+    // Always load data, regardless of auth state
+    this.loadUserData();
+    
+    // Check for saved user session
+    const savedUser = localStorage.getItem('current_user');
+    if (savedUser) {
+        this.user = JSON.parse(savedUser);
+    }
+    
+    this.render();
+    this.attachEventListeners();
+});
 
                 // Check if user is signed in
                 this.user = this.clerk.user;
@@ -87,52 +57,125 @@ try {
             }
 
             // Authentication methods
-            async signIn() {
-                try {
-                    await this.clerk.openSignIn();
-                } catch (error) {
-                    console.error('Sign in error:', error);
-                }
-            }
+          // Authentication methods
+showSignIn() {
+    document.getElementById('signin-form').classList.remove('hidden');
+    document.getElementById('signup-form').classList.add('hidden');
+}
 
-            async signUp() {
-                try {
-                    await this.clerk.openSignUp();
-                } catch (error) {
-                    console.error('Sign up error:', error);
-                }
-            }
+showSignUp() {
+    document.getElementById('signin-form').classList.add('hidden');
+    document.getElementById('signup-form').classList.remove('hidden');
+}
 
-            async signOut() {
-                try {
-                    await this.clerk.signOut();
-                    this.user = null;
-                    this.subscribers = [];
-                    this.campaigns = [];
-                    this.render();
-                } catch (error) {
-                    console.error('Sign out error:', error);
-                }
-            }
+handleSignIn() {
+    const email = document.getElementById('signin-email').value.trim();
+    const password = document.getElementById('signin-password').value;
+
+    if (!email || !password) {
+        alert('Please enter both email and password');
+        return;
+    }
+
+    // Simple authentication check
+    const users = JSON.parse(localStorage.getItem('app_users') || '{}');
+    const user = users[email];
+    
+    if (user && user.password === password) {
+        this.user = {
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName,
+            emailAddresses: [{ emailAddress: user.email }]
+        };
+        localStorage.setItem('current_user', JSON.stringify(this.user));
+        this.loadUserData();
+        this.render();
+    } else {
+        alert('Invalid email or password');
+    }
+}
+
+handleSignUp() {
+    const email = document.getElementById('signup-email').value.trim();
+    const password = document.getElementById('signup-password').value;
+    const firstName = document.getElementById('signup-name').value.trim();
+
+    if (!email || !password) {
+        alert('Please enter both email and password');
+        return;
+    }
+
+    if (password.length < 6) {
+        alert('Password must be at least 6 characters');
+        return;
+    }
+
+    // Store user
+    const users = JSON.parse(localStorage.getItem('app_users') || '{}');
+    
+    if (users[email]) {
+        alert('User already exists. Please sign in instead.');
+        this.showSignIn();
+        return;
+    }
+
+    const user = {
+        id: Date.now().toString(),
+        email,
+        firstName,
+        password,
+        createdAt: new Date().toISOString()
+    };
+
+    users[email] = user;
+    localStorage.setItem('app_users', JSON.stringify(users));
+
+    this.user = {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        emailAddresses: [{ emailAddress: user.email }]
+    };
+    localStorage.setItem('current_user', JSON.stringify(this.user));
+    
+    this.loadUserData();
+    this.render();
+    alert('Account created successfully!');
+}
+
+enterDemoMode() {
+    this.user = {
+        id: 'demo',
+        email: 'demo@example.com',
+        firstName: 'Demo',
+        emailAddresses: [{ emailAddress: 'demo@example.com' }]
+    };
+    this.loadUserData();
+    this.render();
+}
+
+async signOut() {
+    this.user = null;
+    this.subscribers = [];
+    this.campaigns = [];
+    localStorage.removeItem('current_user');
+    this.render();
+}
 
             // Data persistence (now user-specific)
-            loadUserData() {
-                if (!this.user) return;
-                
-                const userKey = `user_${this.user.id}`;
-                this.subscribers = JSON.parse(localStorage.getItem(`${userKey}_subscribers`) || '[]');
-                this.campaigns = JSON.parse(localStorage.getItem(`${userKey}_campaigns`) || '[]');
-                this.fromEmail = localStorage.getItem(`${userKey}_fromEmail`) || 'newsletter@yourdomain.com';
-            }
+  // Data persistence (simplified)
+loadUserData() {
+    this.subscribers = JSON.parse(localStorage.getItem('subscribers') || '[]');
+    this.campaigns = JSON.parse(localStorage.getItem('campaigns') || '[]');
+    this.fromEmail = localStorage.getItem('fromEmail') || 'newsletter@yourdomain.com';
+}
 
-            saveData() {
-                if (!this.user) return;
-                
-                const userKey = `user_${this.user.id}`;
-                localStorage.setItem(`${userKey}_subscribers`, JSON.stringify(this.subscribers));
-                localStorage.setItem(`${userKey}_campaigns`, JSON.stringify(this.campaigns));
-                localStorage.setItem(`${userKey}_fromEmail`, this.fromEmail);
-            }
+saveData() {
+    localStorage.setItem('subscribers', JSON.stringify(this.subscribers));
+    localStorage.setItem('campaigns', JSON.stringify(this.campaigns));
+    localStorage.setItem('fromEmail', this.fromEmail);
+}
 
             // Settings management
             updateSettings(newFromEmail) {
@@ -284,80 +327,125 @@ try {
             }
 
             // Render methods
-            render() {
-                const app = document.getElementById('app');
-                
-                // If not signed in, show login page
-                if (!this.user) {
-                    app.innerHTML = this.getLoginPage();
-                    this.initializeIcons();
-                    return;
-                }
-                
-                app.innerHTML = this.getLayout();
-                this.initializeIcons();
-            }
+          render() {
+    const app = document.getElementById('app');
+    
+    // Check if user is signed in (including from localStorage)
+    if (!this.user) {
+        const savedUser = localStorage.getItem('current_user');
+        if (savedUser) {
+            this.user = JSON.parse(savedUser);
+            this.loadUserData();
+        }
+    }
+    
+    // If still not signed in, show login page
+    if (!this.user) {
+        app.innerHTML = this.getLoginPage();
+        this.initializeIcons();
+        return;
+    }
+    
+    app.innerHTML = this.getLayout();
+    this.initializeIcons();
+}
 
             getLoginPage() {
-                return `
-                    <div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-                        <div class="max-w-md w-full space-y-8">
-                            <div class="text-center">
-                                <h2 class="mt-6 text-3xl font-extrabold text-gray-900">
-                                    Email Campaign Manager
-                                </h2>
-                                <p class="mt-2 text-sm text-gray-600">
-                                    Sign in to manage your email campaigns and newsletters
-                                </p>
-                            </div>
+    return `
+        <div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+            <div class="max-w-md w-full space-y-8">
+                <div class="text-center">
+                    <h2 class="mt-6 text-3xl font-extrabold text-gray-900">
+                        Email Campaign Manager
+                    </h2>
+                    <p class="mt-2 text-sm text-gray-600">
+                        Sign in to manage your email campaigns and newsletters
+                    </p>
+                </div>
+                
+                <div class="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+                    <!-- Sign In Form -->
+                    <div id="signin-form" class="space-y-6">
+                        <div>
+                            <label for="signin-email" class="block text-sm font-medium text-gray-700">Email</label>
+                            <input id="signin-email" type="email" required 
+                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                   placeholder="Enter your email">
+                        </div>
+                        
+                        <div>
+                            <label for="signin-password" class="block text-sm font-medium text-gray-700">Password</label>
+                            <input id="signin-password" type="password" required 
+                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                   placeholder="Enter your password">
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <button onclick="app.handleSignIn()" 
+                                    class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                                Sign In
+                            </button>
                             
-                            <div class="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-                                <div class="space-y-4">
-                                    <button onclick="app.signIn()" 
-                                            class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
-                                        Sign In
-                                    </button>
-                                    
-                                    <div class="text-center">
-                                        <span class="text-sm text-gray-500">Don't have an account?</span>
-                                    </div>
-                                    
-                                    <button onclick="app.signUp()" 
-                                            class="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
-                                        Create Account
-                                    </button>
-                                </div>
-                                
-                                <div class="mt-6">
-                                    <div class="relative">
-                                        <div class="absolute inset-0 flex items-center">
-                                            <div class="w-full border-t border-gray-300"></div>
-                                        </div>
-                                        <div class="relative flex justify-center text-sm">
-                                            <span class="px-2 bg-white text-gray-500">Features</span>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="mt-6 grid grid-cols-1 gap-3">
-                                        <div class="flex items-center text-sm text-gray-600">
-                                            <i data-lucide="mail" class="h-4 w-4 mr-2 text-indigo-500"></i>
-                                            Send email campaigns to subscribers
-                                        </div>
-                                        <div class="flex items-center text-sm text-gray-600">
-                                            <i data-lucide="users" class="h-4 w-4 mr-2 text-indigo-500"></i>
-                                            Manage subscriber lists
-                                        </div>
-                                        <div class="flex items-center text-sm text-gray-600">
-                                            <i data-lucide="bar-chart" class="h-4 w-4 mr-2 text-indigo-500"></i>
-                                            Track campaign performance
-                                        </div>
-                                    </div>
-                                </div>
+                            <div class="text-center">
+                                <button type="button" onclick="app.showSignUp()" 
+                                        class="text-sm text-indigo-600 hover:text-indigo-500">
+                                    Don't have an account? Sign up
+                                </button>
                             </div>
                         </div>
                     </div>
-                `;
-            }
+                    
+                    <!-- Sign Up Form (initially hidden) -->
+                    <div id="signup-form" class="space-y-6 hidden">
+                        <div>
+                            <label for="signup-email" class="block text-sm font-medium text-gray-700">Email</label>
+                            <input id="signup-email" type="email" required 
+                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                   placeholder="Enter your email">
+                        </div>
+                        
+                        <div>
+                            <label for="signup-password" class="block text-sm font-medium text-gray-700">Password</label>
+                            <input id="signup-password" type="password" required 
+                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                   placeholder="At least 6 characters">
+                        </div>
+                        
+                        <div>
+                            <label for="signup-name" class="block text-sm font-medium text-gray-700">First Name (Optional)</label>
+                            <input id="signup-name" type="text" 
+                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                   placeholder="Your first name">
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <button onclick="app.handleSignUp()" 
+                                    class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                                Create Account
+                            </button>
+                            
+                            <div class="text-center">
+                                <button type="button" onclick="app.showSignIn()" 
+                                        class="text-sm text-indigo-600 hover:text-indigo-500">
+                                    Already have an account? Sign in
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Demo Access -->
+                    <div class="mt-6 pt-6 border-t border-gray-200">
+                        <button onclick="app.enterDemoMode()" 
+                                class="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                            Continue as Demo User
+                        </button>
+                        <p class="mt-2 text-xs text-gray-500 text-center">Try the app without creating an account</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
 
             getLayout() {
                 return `
