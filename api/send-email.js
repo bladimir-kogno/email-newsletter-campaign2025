@@ -1,16 +1,15 @@
 // api/send-email.js
-// This file should be placed in your GitHub repo at: /api/send-email.js
+// Vercel serverless function for sending emails via Resend
 
 import { Resend } from 'resend';
 
-// Initialize Resend with your API key
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export default async function handler(req, res) {
-  // Enable CORS
+  // Enable CORS for all origins
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   // Handle preflight OPTIONS request
   if (req.method === 'OPTIONS') {
@@ -19,23 +18,45 @@ export default async function handler(req, res) {
 
   // Only allow POST requests
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return res.status(405).json({ 
+      success: false, 
+      error: 'Method not allowed. Use POST.' 
+    });
   }
 
   try {
+    console.log('Email API called with body:', req.body);
+
     const { recipients, subject, content, fromEmail, campaignId, isTest } = req.body;
 
     // Validate required fields
-    if (!recipients || !subject || !content || !fromEmail) {
+    if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
       return res.status(400).json({ 
-        error: 'Missing required fields: recipients, subject, content, fromEmail' 
+        success: false, 
+        error: 'Recipients array is required and must not be empty' 
       });
     }
 
-    // Ensure fromEmail uses your domain
+    if (!subject || !content || !fromEmail) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Subject, content, and fromEmail are required' 
+      });
+    }
+
+    // Ensure fromEmail uses lumail.co.uk domain
     if (!fromEmail.includes('@lumail.co.uk')) {
       return res.status(400).json({ 
+        success: false, 
         error: 'From email must use @lumail.co.uk domain' 
+      });
+    }
+
+    // Check if Resend API key is configured
+    if (!process.env.RESEND_API_KEY) {
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Resend API key not configured. Add RESEND_API_KEY to environment variables.' 
       });
     }
 
@@ -60,7 +81,7 @@ export default async function handler(req, res) {
             padding: 0;
             background-color: #f8f9fa;
           }
-          .container {
+          .email-container {
             max-width: 600px;
             margin: 0 auto;
             background-color: #ffffff;
@@ -68,16 +89,16 @@ export default async function handler(req, res) {
             overflow: hidden;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
           }
-          .header {
+          .email-header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             padding: 30px 20px;
             text-align: center;
           }
-          .content { 
+          .email-content { 
             padding: 30px 20px; 
           }
-          .footer { 
+          .email-footer { 
             background-color: #f8f9fa;
             padding: 20px;
             text-align: center;
@@ -85,12 +106,12 @@ export default async function handler(req, res) {
             font-size: 12px;
             color: #718096;
           }
-          .unsubscribe {
+          .unsubscribe-link {
             color: #718096;
             text-decoration: none;
             font-size: 12px;
           }
-          .unsubscribe:hover {
+          .unsubscribe-link:hover {
             text-decoration: underline;
           }
           /* Make images responsive */
@@ -102,73 +123,109 @@ export default async function handler(req, res) {
           a[style*="background-color"] {
             display: inline-block !important;
           }
+          /* Mobile responsiveness */
+          @media only screen and (max-width: 600px) {
+            .email-container {
+              margin: 0;
+              border-radius: 0;
+            }
+            .email-header, .email-content {
+              padding: 20px 15px;
+            }
+          }
         </style>
       </head>
       <body>
-        <div class="container">
-          <div class="header">
-            <h1>${subject}</h1>
+        <div class="email-container">
+          <div class="email-header">
+            <h1 style="margin: 0; font-size: 24px;">${subject}</h1>
+            <p style="margin: 10px 0 0 0; opacity: 0.9;">LUMail Newsletter</p>
           </div>
-          <div class="content">
+          <div class="email-content">
             ${content}
           </div>
-          <div class="footer">
-            <p>You received this email because you subscribed to our newsletter.</p>
-            <p>
-              <a href="https://your-app-url.vercel.app/unsubscribe?email={{email}}" class="unsubscribe">
+          <div class="email-footer">
+            <p style="margin: 0 0 10px 0;">You received this email because you subscribed to our newsletter.</p>
+            <p style="margin: 0;">
+              <a href="mailto:${fromEmail}?subject=Unsubscribe%20Request" class="unsubscribe-link">
                 Unsubscribe from this list
               </a>
             </p>
-            <p>© 2025 LUMail. All rights reserved.</p>
+            <p style="margin: 10px 0 0 0;">© 2025 LUMail. All rights reserved.</p>
           </div>
         </div>
       </body>
       </html>
     `;
 
-    // Send emails to recipients
+    console.log(`Sending to ${recipients.length} recipients...`);
+
+    // Send emails to all recipients
     for (const recipient of recipients) {
       try {
-        const personalizedContent = htmlContent.replace('{{email}}', recipient.email);
+        console.log(`Sending to: ${recipient.email}`);
         
-        await resend.emails.send({
+        const emailData = {
           from: fromEmail,
           to: recipient.email,
           subject: subject,
-          html: personalizedContent,
+          html: htmlContent,
           headers: {
             'X-Campaign-ID': campaignId || 'unknown',
             'X-Test-Email': isTest ? 'true' : 'false'
           }
-        });
+        };
+
+        // Add reply-to for better deliverability
+        if (fromEmail !== 'noreply@lumail.co.uk') {
+          emailData.reply_to = fromEmail;
+        }
+
+        const result = await resend.emails.send(emailData);
         
+        console.log(`Email sent successfully to ${recipient.email}, ID: ${result.id}`);
         sent++;
-        console.log(`Email sent successfully to ${recipient.email}`);
+        
       } catch (error) {
+        console.error(`Failed to send email to ${recipient.email}:`, error);
         failed++;
         failures.push({
           email: recipient.email,
-          error: error.message
+          error: error.message || 'Unknown error'
         });
-        console.error(`Failed to send email to ${recipient.email}:`, error);
       }
     }
 
     // Return success response
-    return res.status(200).json({
+    const response = {
       success: true,
       sent,
       failed,
-      failures: failures.length > 0 ? failures : undefined,
-      message: isTest ? 'Test email sent successfully!' : `Campaign sent to ${sent} recipients`
-    });
+      message: isTest 
+        ? `Test email sent successfully to ${sent} recipient(s)!` 
+        : `Campaign sent successfully to ${sent} out of ${recipients.length} recipients`,
+      campaignId: campaignId
+    };
+
+    // Include failure details if any
+    if (failures.length > 0) {
+      response.failures = failures;
+      response.message += ` (${failed} failed)`;
+    }
+
+    console.log('Email sending completed:', response);
+    
+    return res.status(200).json(response);
 
   } catch (error) {
     console.error('API Error:', error);
+    
+    // Return detailed error information
     return res.status(500).json({
       success: false,
       error: 'Failed to send emails',
-      details: error.message
+      details: error.message,
+      code: error.code || 'UNKNOWN_ERROR'
     });
   }
 }
