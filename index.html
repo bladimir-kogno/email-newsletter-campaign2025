@@ -1,179 +1,338 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Email Campaign Manager</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.js"></script>
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Campaign Manager</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.js"></script>
 </head>
 <body class="bg-gray-50 min-h-screen">
-<div id="app"></div>
+    <div id="app"></div>
 
-<script>
-  // Email Campaign Manager App
-  class EmailCampaignApp {
-    constructor() {
-      this.subscribers = JSON.parse(localStorage.getItem('subscribers') || '[]');
-      this.campaigns = JSON.parse(localStorage.getItem('campaigns') || '[]');
-      this.currentView = 'dashboard';
-      this.editingCampaign = null;
-      this.init();
-    }
+    <script type="module">
+        // Initialize Clerk
+        import { Clerk } from 'https://cdn.jsdelivr.net/npm/@clerk/clerk-js@4/dist/clerk.browser.js';
 
-    init() {
-      this.render();
-      this.attachEventListeners();
-    }
+        // Load Clerk configuration
+        const configResponse = await fetch('/api/config');
+        const config = await configResponse.json();
+        const clerk = new Clerk(config.clerkPublishableKey);
+        await clerk.load();
 
-    // Data persistence
-    saveData() {
-      localStorage.setItem('subscribers', JSON.stringify(this.subscribers));
-      localStorage.setItem('campaigns', JSON.stringify(this.campaigns));
-    }
+        // Email Campaign Manager App
+        class EmailCampaignApp {
+            constructor() {
+                this.clerk = clerk;
+                this.user = null;
+                this.subscribers = [];
+                this.campaigns = [];
+                this.currentView = 'dashboard';
+                this.editingCampaign = null;
+                this.fromEmail = 'newsletter@yourdomain.com'; // Default from email
+                this.init();
+            }
 
-    // Navigation
-    showView(view) {
-      this.currentView = view;
-      this.render();
-    }
+            async init() {
+                // Listen for auth state changes
+                this.clerk.addListener(() => {
+                    this.user = this.clerk.user;
+                    if (this.user) {
+                        this.loadUserData();
+                    } else {
+                        this.subscribers = [];
+                        this.campaigns = [];
+                    }
+                    this.render();
+                });
 
-    // Subscriber management
-    addSubscriber(email, name = '') {
-      if (this.subscribers.find(s => s.email === email)) {
-        alert('Subscriber already exists!');
-        return false;
-      }
+                // Check if user is signed in
+                this.user = this.clerk.user;
+                
+                if (this.user) {
+                    this.loadUserData();
+                }
+                
+                this.render();
+                this.attachEventListeners();
+            }
 
-      const subscriber = {
-        id: Date.now(),
-        email,
-        name,
-        dateAdded: new Date().toISOString(),
-        status: 'active'
-      };
+            // Authentication methods
+            async signIn() {
+                try {
+                    await this.clerk.openSignIn();
+                } catch (error) {
+                    console.error('Sign in error:', error);
+                }
+            }
 
-      this.subscribers.push(subscriber);
-      this.saveData();
-      return true;
-    }
+            async signUp() {
+                try {
+                    await this.clerk.openSignUp();
+                } catch (error) {
+                    console.error('Sign up error:', error);
+                }
+            }
 
-    removeSubscriber(id) {
-      this.subscribers = this.subscribers.filter(s => s.id !== id);
-      this.saveData();
-      this.render();
-    }
+            async signOut() {
+                try {
+                    await this.clerk.signOut();
+                    this.user = null;
+                    this.subscribers = [];
+                    this.campaigns = [];
+                    this.render();
+                } catch (error) {
+                    console.error('Sign out error:', error);
+                }
+            }
 
-    importSubscribers(csvText) {
-      const lines = csvText.split('\n').filter(line => line.trim());
-      let imported = 0;
+            // Data persistence (now user-specific)
+            loadUserData() {
+                if (!this.user) return;
+                
+                const userKey = `user_${this.user.id}`;
+                this.subscribers = JSON.parse(localStorage.getItem(`${userKey}_subscribers`) || '[]');
+                this.campaigns = JSON.parse(localStorage.getItem(`${userKey}_campaigns`) || '[]');
+                this.fromEmail = localStorage.getItem(`${userKey}_fromEmail`) || 'newsletter@yourdomain.com';
+            }
 
-      lines.forEach(line => {
-        const [email, name] = line.split(',').map(s => s.trim());
-        if (email && email.includes('@')) {
-          if (this.addSubscriber(email, name || '')) {
-            imported++;
-          }
-        }
-      });
+            saveData() {
+                if (!this.user) return;
+                
+                const userKey = `user_${this.user.id}`;
+                localStorage.setItem(`${userKey}_subscribers`, JSON.stringify(this.subscribers));
+                localStorage.setItem(`${userKey}_campaigns`, JSON.stringify(this.campaigns));
+                localStorage.setItem(`${userKey}_fromEmail`, this.fromEmail);
+            }
 
-      alert(`Imported ${imported} subscribers`);
-      this.render();
-    }
+            // Settings management
+            updateSettings(newFromEmail) {
+                this.fromEmail = newFromEmail;
+                this.saveData();
+                alert('Settings updated successfully!');
+                this.render();
+            }
 
-    // Campaign management
-    createCampaign(title, subject, content) {
-      const campaign = {
-        id: Date.now(),
-        title,
-        subject,
-        content,
-        dateCreated: new Date().toISOString(),
-        status: 'draft',
-        sentCount: 0,
-        openCount: 0
-      };
+            // Navigation
+            showView(view) {
+                this.currentView = view;
+                this.render();
+            }
 
-      this.campaigns.push(campaign);
-      this.saveData();
-      this.showView('campaigns');
-    }
+            // Subscriber management
+            addSubscriber(email, name = '') {
+                if (this.subscribers.find(s => s.email === email)) {
+                    alert('Subscriber already exists!');
+                    return false;
+                }
+                
+                const subscriber = {
+                    id: Date.now(),
+                    email,
+                    name,
+                    dateAdded: new Date().toISOString(),
+                    status: 'active'
+                };
+                
+                this.subscribers.push(subscriber);
+                this.saveData();
+                return true;
+            }
 
-    updateCampaign(id, updates) {
-      const index = this.campaigns.findIndex(c => c.id === id);
-      if (index !== -1) {
-        this.campaigns[index] = { ...this.campaigns[index], ...updates };
-        this.saveData();
-      }
-    }
+            removeSubscriber(id) {
+                this.subscribers = this.subscribers.filter(s => s.id !== id);
+                this.saveData();
+                this.render();
+            }
 
-    deleteCampaign(id) {
-      this.campaigns = this.campaigns.filter(c => c.id !== id);
-      this.saveData();
-      this.render();
-    }
+            importSubscribers(csvText) {
+                const lines = csvText.split('\n').filter(line => line.trim());
+                let imported = 0;
+                
+                lines.forEach(line => {
+                    const [email, name] = line.split(',').map(s => s.trim());
+                    if (email && email.includes('@')) {
+                        if (this.addSubscriber(email, name || '')) {
+                            imported++;
+                        }
+                    }
+                });
+                
+                alert(`Imported ${imported} subscribers`);
+                this.render();
+            }
 
-   async sendCampaign(id) {
-    const campaign = this.campaigns.find(c => c.id === id);
-    if (!campaign) return;
+            // Campaign management
+            createCampaign(title, subject, content) {
+                const campaign = {
+                    id: Date.now(),
+                    title,
+                    subject,
+                    content,
+                    dateCreated: new Date().toISOString(),
+                    status: 'draft',
+                    sentCount: 0,
+                    openCount: 0
+                };
+                
+                this.campaigns.push(campaign);
+                this.saveData();
+                this.showView('campaigns');
+            }
 
-    const activeSubscribers = this.subscribers.filter(s => s.status === 'active');
-    
-    if (activeSubscribers.length === 0) {
-        alert('No active subscribers to send to!');
-        return;
-    }
+            updateCampaign(id, updates) {
+                const index = this.campaigns.findIndex(c => c.id === id);
+                if (index !== -1) {
+                    this.campaigns[index] = { ...this.campaigns[index], ...updates };
+                    this.saveData();
+                }
+            }
 
-    if (!confirm(`Send "${campaign.title}" to ${activeSubscribers.length} subscribers?`)) {
-        return;
-    }
+            deleteCampaign(id) {
+                this.campaigns = this.campaigns.filter(c => c.id !== id);
+                this.saveData();
+                this.render();
+            }
 
-    this.updateCampaign(id, { status: 'sending' });
-    this.render();
+            async sendCampaign(id) {
+                const campaign = this.campaigns.find(c => c.id === id);
+                if (!campaign) return;
 
-    try {
-        const response = await fetch('/api/send-email', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                recipients: activeSubscribers,
-                subject: campaign.subject,
-                content: campaign.content
-            })
-        });
+                const activeSubscribers = this.subscribers.filter(s => s.status === 'active');
+                
+                if (activeSubscribers.length === 0) {
+                    alert('No active subscribers to send to!');
+                    return;
+                }
 
-        const result = await response.json();
+                if (!confirm(`Send "${campaign.title}" to ${activeSubscribers.length} subscribers?`)) {
+                    return;
+                }
 
-        if (result.success) {
-            this.updateCampaign(id, {
-                status: 'sent',
-                sentCount: result.sent,
-                dateSent: new Date().toISOString()
-            });
-            alert(`Campaign sent to ${result.sent} subscribers!`);
-        } else {
-            throw new Error(result.error || 'Failed to send campaign');
-        }
-    } catch (error) {
-        console.error('Send error:', error);
-        this.updateCampaign(id, { status: 'draft' });
-        alert(`Failed to send: ${error.message}`);
-    }
+                this.updateCampaign(id, { status: 'sending' });
+                this.render();
 
-    this.render();
-}
+                try {
+                    const response = await fetch('/api/send-email', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            recipients: activeSubscribers,
+                            subject: campaign.subject,
+                            content: campaign.content,
+                            fromEmail: this.fromEmail,
+                            campaignId: id
+                        })
+                    });
 
-    // Render methods
-    render() {
-      const app = document.getElementById('app');
-      app.innerHTML = this.getLayout();
-    }
+                    const result = await response.json();
 
-    getLayout() {
-      return `
+                    if (result.success) {
+                        this.updateCampaign(id, {
+                            status: 'sent',
+                            sentCount: result.sent,
+                            dateSent: new Date().toISOString(),
+                            failedCount: result.failed || 0
+                        });
+                        
+                        let message = `Campaign sent successfully to ${result.sent} subscribers!`;
+                        if (result.failed > 0) {
+                            message += `\n${result.failed} emails failed to send.`;
+                        }
+                        alert(message);
+                    } else {
+                        throw new Error(result.error || 'Failed to send campaign');
+                    }
+                } catch (error) {
+                    console.error('Send campaign error:', error);
+                    this.updateCampaign(id, { status: 'draft' });
+                    alert(`Failed to send campaign: ${error.message}`);
+                }
+
+                this.render();
+            }
+
+            // Render methods
+            render() {
+                const app = document.getElementById('app');
+                
+                // If not signed in, show login page
+                if (!this.user) {
+                    app.innerHTML = this.getLoginPage();
+                    this.initializeIcons();
+                    return;
+                }
+                
+                app.innerHTML = this.getLayout();
+                this.initializeIcons();
+            }
+
+            getLoginPage() {
+                return `
+                    <div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+                        <div class="max-w-md w-full space-y-8">
+                            <div class="text-center">
+                                <h2 class="mt-6 text-3xl font-extrabold text-gray-900">
+                                    Email Campaign Manager
+                                </h2>
+                                <p class="mt-2 text-sm text-gray-600">
+                                    Sign in to manage your email campaigns and newsletters
+                                </p>
+                            </div>
+                            
+                            <div class="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+                                <div class="space-y-4">
+                                    <button onclick="app.signIn()" 
+                                            class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                                        Sign In
+                                    </button>
+                                    
+                                    <div class="text-center">
+                                        <span class="text-sm text-gray-500">Don't have an account?</span>
+                                    </div>
+                                    
+                                    <button onclick="app.signUp()" 
+                                            class="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                                        Create Account
+                                    </button>
+                                </div>
+                                
+                                <div class="mt-6">
+                                    <div class="relative">
+                                        <div class="absolute inset-0 flex items-center">
+                                            <div class="w-full border-t border-gray-300"></div>
+                                        </div>
+                                        <div class="relative flex justify-center text-sm">
+                                            <span class="px-2 bg-white text-gray-500">Features</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-6 grid grid-cols-1 gap-3">
+                                        <div class="flex items-center text-sm text-gray-600">
+                                            <i data-lucide="mail" class="h-4 w-4 mr-2 text-indigo-500"></i>
+                                            Send email campaigns to subscribers
+                                        </div>
+                                        <div class="flex items-center text-sm text-gray-600">
+                                            <i data-lucide="users" class="h-4 w-4 mr-2 text-indigo-500"></i>
+                                            Manage subscriber lists
+                                        </div>
+                                        <div class="flex items-center text-sm text-gray-600">
+                                            <i data-lucide="bar-chart" class="h-4 w-4 mr-2 text-indigo-500"></i>
+                                            Track campaign performance
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            getLayout() {
+                return `
                     <div class="min-h-screen bg-gray-50">
                         ${this.getHeader()}
                         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -181,58 +340,136 @@
                         </div>
                     </div>
                 `;
-    }
+            }
 
-    getHeader() {
-      return `
+            getHeader() {
+                return `
                     <header class="bg-white shadow">
                         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                             <div class="flex justify-between items-center py-6">
-                                <h1 class="text-3xl font-bold text-gray-900">Email Campaign Manager</h1>
-                                <nav class="flex space-x-8">
-                                    <button onclick="app.showView('dashboard')"
-                                            class="nav-btn ${this.currentView === 'dashboard' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}">
-                                        Dashboard
+                                <div class="flex items-center">
+                                    <h1 class="text-3xl font-bold text-gray-900">Email Campaign Manager</h1>
+                                    <span class="ml-4 text-sm text-gray-500">Welcome, ${this.user?.firstName || this.user?.emailAddresses[0]?.emailAddress}</span>
+                                </div>
+                                <div class="flex items-center space-x-4">
+                                    <nav class="flex space-x-8">
+                                        <button onclick="app.showView('dashboard')" 
+                                                class="nav-btn ${this.currentView === 'dashboard' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}">
+                                            Dashboard
+                                        </button>
+                                        <button onclick="app.showView('subscribers')" 
+                                                class="nav-btn ${this.currentView === 'subscribers' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}">
+                                            Subscribers
+                                        </button>
+                                        <button onclick="app.showView('campaigns')" 
+                                                class="nav-btn ${this.currentView === 'campaigns' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}">
+                                            Campaigns
+                                        </button>
+                                        <button onclick="app.showView('settings')" 
+                                                class="nav-btn ${this.currentView === 'settings' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}">
+                                            Settings
+                                        </button>
+                                    </nav>
+                                    <button onclick="app.signOut()" 
+                                            class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors text-sm">
+                                        Sign Out
                                     </button>
-                                    <button onclick="app.showView('subscribers')"
-                                            class="nav-btn ${this.currentView === 'subscribers' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}">
-                                        Subscribers
-                                    </button>
-                                    <button onclick="app.showView('campaigns')"
-                                            class="nav-btn ${this.currentView === 'campaigns' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}">
-                                        Campaigns
-                                    </button>
-                                </nav>
+                                </div>
                             </div>
                         </div>
                     </header>
                 `;
-    }
+            }
 
-    getMainContent() {
-      switch (this.currentView) {
-        case 'dashboard':
-          return this.getDashboard();
-        case 'subscribers':
-          return this.getSubscribersView();
-        case 'campaigns':
-          return this.getCampaignsView();
-        case 'create-campaign':
-          return this.getCreateCampaignView();
-        case 'edit-campaign':
-          return this.getEditCampaignView();
-        default:
-          return this.getDashboard();
-      }
-    }
+            getMainContent() {
+                switch (this.currentView) {
+                    case 'dashboard':
+                        return this.getDashboard();
+                    case 'subscribers':
+                        return this.getSubscribersView();
+                    case 'campaigns':
+                        return this.getCampaignsView();
+                    case 'create-campaign':
+                        return this.getCreateCampaignView();
+                    case 'edit-campaign':
+                        return this.getEditCampaignView();
+                    case 'settings':
+                        return this.getSettingsView();
+                    default:
+                        return this.getDashboard();
+                }
+            }
 
-    getDashboard() {
-      const totalSubscribers = this.subscribers.length;
-      const activeSubscribers = this.subscribers.filter(s => s.status === 'active').length;
-      const totalCampaigns = this.campaigns.length;
-      const sentCampaigns = this.campaigns.filter(c => c.status === 'sent').length;
+            getSettingsView() {
+                return `
+                    <div class="bg-white shadow rounded-lg">
+                        <div class="px-4 py-5 sm:p-6">
+                            <h2 class="text-2xl font-bold text-gray-900 mb-6">Settings</h2>
+                            
+                            <form onsubmit="app.handleSettingsUpdate(event)" class="space-y-6">
+                                <div>
+                                    <label for="fromEmail" class="block text-sm font-medium text-gray-700 mb-2">
+                                        From Email Address
+                                    </label>
+                                    <input type="email" id="fromEmail" value="${this.fromEmail}" required
+                                           class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                           placeholder="newsletter@yourdomain.com">
+                                    <p class="mt-2 text-sm text-gray-500">
+                                        This email address will appear as the sender for all campaigns. Make sure it's verified in your email service provider.
+                                    </p>
+                                </div>
 
-      return `
+                                <div class="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                                    <div class="flex">
+                                        <i data-lucide="alert-triangle" class="h-5 w-5 text-yellow-400 mr-2"></i>
+                                        <div>
+                                            <h3 class="text-sm font-medium text-yellow-800">Important:</h3>
+                                            <div class="mt-1 text-sm text-yellow-700">
+                                                <p>• Make sure this email is verified in your Resend dashboard</p>
+                                                <p>• Use a domain you own (not gmail, yahoo, etc.)</p>
+                                                <p>• Consider using a subdomain like mail.yourdomain.com</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="flex space-x-4">
+                                    <button type="submit" 
+                                            class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors">
+                                        Save Settings
+                                    </button>
+                                </div>
+                            </form>
+
+                            <div class="mt-8 pt-8 border-t border-gray-200">
+                                <h3 class="text-lg font-medium text-gray-900 mb-4">Account Information</h3>
+                                <div class="space-y-2">
+                                    <p class="text-sm text-gray-600">
+                                        <strong>Email:</strong> ${this.user?.emailAddresses[0]?.emailAddress}
+                                    </p>
+                                    <p class="text-sm text-gray-600">
+                                        <strong>Name:</strong> ${this.user?.firstName || 'Not set'} ${this.user?.lastName || ''}
+                                    </p>
+                                    <p class="text-sm text-gray-600">
+                                        <strong>Subscribers:</strong> ${this.subscribers.length}
+                                    </p>
+                                    <p class="text-sm text-gray-600">
+                                        <strong>Campaigns:</strong> ${this.campaigns.length}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            getDashboard() {
+                const totalSubscribers = this.subscribers.length;
+                const activeSubscribers = this.subscribers.filter(s => s.status === 'active').length;
+                const totalCampaigns = this.campaigns.length;
+                const sentCampaigns = this.campaigns.filter(c => c.status === 'sent').length;
+
+                return `
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                         <div class="bg-white overflow-hidden shadow rounded-lg">
                             <div class="p-5">
@@ -304,11 +541,11 @@
                             <div class="px-4 py-5 sm:p-6">
                                 <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Quick Actions</h3>
                                 <div class="space-y-3">
-                                    <button onclick="app.showView('create-campaign')"
+                                    <button onclick="app.showView('create-campaign')" 
                                             class="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
                                         Create New Campaign
                                     </button>
-                                    <button onclick="app.showView('subscribers')"
+                                    <button onclick="app.showView('subscribers')" 
                                             class="w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
                                         Manage Subscribers
                                     </button>
@@ -334,20 +571,20 @@
                         </div>
                     </div>
                 `;
-    }
+            }
 
-    getSubscribersView() {
-      return `
+            getSubscribersView() {
+                return `
                     <div class="bg-white shadow rounded-lg">
                         <div class="px-4 py-5 sm:p-6">
                             <div class="flex justify-between items-center mb-6">
                                 <h2 class="text-2xl font-bold text-gray-900">Subscribers (${this.subscribers.length})</h2>
                                 <div class="flex space-x-3">
-                                    <button onclick="document.getElementById('csvFile').click()"
+                                    <button onclick="document.getElementById('csvFile').click()" 
                                             class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
                                         Import CSV
                                     </button>
-                                    <button onclick="app.showAddSubscriberForm()"
+                                    <button onclick="app.showAddSubscriberForm()" 
                                             class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
                                         Add Subscriber
                                     </button>
@@ -365,11 +602,11 @@
                                            class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 </div>
                                 <div class="mt-4 flex space-x-3">
-                                    <button onclick="app.handleAddSubscriber()"
+                                    <button onclick="app.handleAddSubscriber()" 
                                             class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
                                         Add Subscriber
                                     </button>
-                                    <button onclick="app.hideAddSubscriberForm()"
+                                    <button onclick="app.hideAddSubscriberForm()" 
                                             class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400">
                                         Cancel
                                     </button>
@@ -399,7 +636,7 @@
                                                     </span>
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                                    <button onclick="app.removeSubscriber(${subscriber.id})"
+                                                    <button onclick="app.removeSubscriber(${subscriber.id})" 
                                                             class="text-red-600 hover:text-red-900">Remove</button>
                                                 </td>
                                             </tr>
@@ -410,15 +647,15 @@
                         </div>
                     </div>
                 `;
-    }
+            }
 
-    getCampaignsView() {
-      return `
+            getCampaignsView() {
+                return `
                     <div class="bg-white shadow rounded-lg">
                         <div class="px-4 py-5 sm:p-6">
                             <div class="flex justify-between items-center mb-6">
                                 <h2 class="text-2xl font-bold text-gray-900">Campaigns (${this.campaigns.length})</h2>
-                                <button onclick="app.showView('create-campaign')"
+                                <button onclick="app.showView('create-campaign')" 
                                         class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
                                     Create Campaign
                                 </button>
@@ -431,10 +668,10 @@
                                             <h3 class="text-lg font-semibold text-gray-900">${campaign.title}</h3>
                                             ${this.getStatusBadge(campaign.status)}
                                         </div>
-
+                                        
                                         <p class="text-sm text-gray-600 mb-2"><strong>Subject:</strong> ${campaign.subject}</p>
                                         <p class="text-sm text-gray-500 mb-4">Created: ${new Date(campaign.dateCreated).toLocaleDateString()}</p>
-
+                                        
                                         ${campaign.status === 'sent' ? `
                                             <div class="text-sm text-gray-600 mb-4">
                                                 <p>Sent to: ${campaign.sentCount} subscribers</p>
@@ -444,21 +681,21 @@
 
                                         <div class="flex space-x-2">
                                             ${campaign.status === 'draft' ? `
-                                                <button onclick="app.editCampaign(${campaign.id})"
+                                                <button onclick="app.editCampaign(${campaign.id})" 
                                                         class="flex-1 bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700">
                                                     Edit
                                                 </button>
-                                                <button onclick="app.sendCampaign(${campaign.id})"
+                                                <button onclick="app.sendCampaign(${campaign.id})" 
                                                         class="flex-1 bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700">
                                                     Send
                                                 </button>
                                             ` : `
-                                                <button onclick="app.previewCampaign(${campaign.id})"
+                                                <button onclick="app.previewCampaign(${campaign.id})" 
                                                         class="flex-1 bg-gray-600 text-white px-3 py-2 rounded text-sm hover:bg-gray-700">
                                                     Preview
                                                 </button>
                                             `}
-                                            <button onclick="app.deleteCampaign(${campaign.id})"
+                                            <button onclick="app.deleteCampaign(${campaign.id})" 
                                                     class="bg-red-600 text-white px-3 py-2 rounded text-sm hover:bg-red-700">
                                                 Delete
                                             </button>
@@ -469,14 +706,14 @@
                         </div>
                     </div>
                 `;
-    }
+            }
 
-    getCreateCampaignView() {
-      return `
+            getCreateCampaignView() {
+                return `
                     <div class="bg-white shadow rounded-lg">
                         <div class="px-4 py-5 sm:p-6">
                             <h2 class="text-2xl font-bold text-gray-900 mb-6">Create New Campaign</h2>
-
+                            
                             <form onsubmit="app.handleCreateCampaign(event)" class="space-y-6">
                                 <div>
                                     <label for="campaignTitle" class="block text-sm font-medium text-gray-700 mb-2">Campaign Title</label>
@@ -494,17 +731,42 @@
 
                                 <div>
                                     <label for="emailContent" class="block text-sm font-medium text-gray-700 mb-2">Email Content</label>
-                                    <textarea id="emailContent" rows="12" required
+                                    <div class="mb-2">
+                                        <div class="text-sm text-gray-600 bg-blue-50 p-3 rounded border">
+                                            <strong>HTML Support:</strong> You can use HTML tags for formatting:
+                                            <br>• <code>&lt;h1&gt;Heading&lt;/h1&gt;</code> for headings
+                                            <br>• <code>&lt;p&gt;Paragraph&lt;/p&gt;</code> for paragraphs
+                                            <br>• <code>&lt;strong&gt;Bold&lt;/strong&gt;</code> for bold text
+                                            <br>• <code>&lt;a href="url"&gt;Link&lt;/a&gt;</code> for links
+                                            <br>• Or use **bold** for simple formatting
+                                        </div>
+                                    </div>
+                                    <textarea id="emailContent" rows="15" required
                                               class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                               placeholder="Write your email content here. You can use HTML tags for formatting."></textarea>
                                 </div>
 
+                                <div class="bg-green-50 border border-green-200 rounded-md p-4">
+                                    <div class="flex">
+                                        <i data-lucide="info" class="h-5 w-5 text-green-400 mr-2"></i>
+                                        <div>
+                                            <h3 class="text-sm font-medium text-green-800">Email Features:</h3>
+                                            <div class="mt-1 text-sm text-green-700">
+                                                <p>• Professional HTML styling automatically applied</p>
+                                                <p>• Unsubscribe link automatically included</p>
+                                                <p>• Mobile-responsive design</p>
+                                                <p>• Will be sent from: <strong>${this.fromEmail}</strong></p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div class="flex space-x-4">
-                                    <button type="submit"
+                                    <button type="submit" 
                                             class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors">
                                         Create Campaign
                                     </button>
-                                    <button type="button" onclick="app.showView('campaigns')"
+                                    <button type="button" onclick="app.showView('campaigns')" 
                                             class="bg-gray-300 text-gray-700 px-6 py-2 rounded-md hover:bg-gray-400 transition-colors">
                                         Cancel
                                     </button>
@@ -513,17 +775,17 @@
                         </div>
                     </div>
                 `;
-    }
+            }
 
-    getEditCampaignView() {
-      const campaign = this.editingCampaign;
-      if (!campaign) return this.getCampaignsView();
+            getEditCampaignView() {
+                const campaign = this.editingCampaign;
+                if (!campaign) return this.getCampaignsView();
 
-      return `
+                return `
                     <div class="bg-white shadow rounded-lg">
                         <div class="px-4 py-5 sm:p-6">
                             <h2 class="text-2xl font-bold text-gray-900 mb-6">Edit Campaign</h2>
-
+                            
                             <form onsubmit="app.handleEditCampaign(event)" class="space-y-6">
                                 <div>
                                     <label for="editCampaignTitle" class="block text-sm font-medium text-gray-700 mb-2">Campaign Title</label>
@@ -539,16 +801,16 @@
 
                                 <div>
                                     <label for="editEmailContent" class="block text-sm font-medium text-gray-700 mb-2">Email Content</label>
-                                    <textarea id="editEmailContent" rows="12" required
+                                    <textarea id="editEmailContent" rows="15" required
                                               class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">${campaign.content}</textarea>
                                 </div>
 
                                 <div class="flex space-x-4">
-                                    <button type="submit"
+                                    <button type="submit" 
                                             class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors">
                                         Update Campaign
                                     </button>
-                                    <button type="button" onclick="app.showView('campaigns')"
+                                    <button type="button" onclick="app.showView('campaigns')" 
                                             class="bg-gray-300 text-gray-700 px-6 py-2 rounded-md hover:bg-gray-400 transition-colors">
                                         Cancel
                                     </button>
@@ -557,154 +819,192 @@
                         </div>
                     </div>
                 `;
-    }
+            }
 
-    getStatusBadge(status) {
-      const statusConfig = {
-        'draft': { color: 'bg-yellow-100 text-yellow-800', text: 'Draft' },
-        'sending': { color: 'bg-blue-100 text-blue-800', text: 'Sending...' },
-        'sent': { color: 'bg-green-100 text-green-800', text: 'Sent' }
-      };
+            getStatusBadge(status) {
+                const statusConfig = {
+                    'draft': { color: 'bg-yellow-100 text-yellow-800', text: 'Draft' },
+                    'sending': { color: 'bg-blue-100 text-blue-800', text: 'Sending...' },
+                    'sent': { color: 'bg-green-100 text-green-800', text: 'Sent' }
+                };
+                
+                const config = statusConfig[status] || statusConfig['draft'];
+                return `<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ${config.color}">${config.text}</span>`;
+            }
 
-      const config = statusConfig[status] || statusConfig['draft'];
-      return `<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ${config.color}">${config.text}</span>`;
-    }
+            // Event handlers
+            initializeIcons() {
+                // Initialize Lucide icons
+                setTimeout(() => {
+                    if (typeof lucide !== 'undefined') {
+                        lucide.createIcons();
+                    }
+                }, 100);
+            }
 
-    // Event handlers
-    attachEventListeners() {
-      // Initialize Lucide icons
-      if (typeof lucide !== 'undefined') {
-        lucide.createIcons();
-      }
-    }
+            showAddSubscriberForm() {
+                document.getElementById('addSubscriberForm').classList.remove('hidden');
+            }
 
-    showAddSubscriberForm() {
-      document.getElementById('addSubscriberForm').classList.remove('hidden');
-    }
+            hideAddSubscriberForm() {
+                document.getElementById('addSubscriberForm').classList.add('hidden');
+                document.getElementById('newEmail').value = '';
+                document.getElementById('newName').value = '';
+            }
 
-    hideAddSubscriberForm() {
-      document.getElementById('addSubscriberForm').classList.add('hidden');
-      document.getElementById('newEmail').value = '';
-      document.getElementById('newName').value = '';
-    }
+            handleAddSubscriber() {
+                const email = document.getElementById('newEmail').value.trim();
+                const name = document.getElementById('newName').value.trim();
+                
+                if (!email) {
+                    alert('Please enter an email address');
+                    return;
+                }
+                
+                if (this.addSubscriber(email, name)) {
+                    this.hideAddSubscriberForm();
+                    this.render();
+                }
+            }
 
-    handleAddSubscriber() {
-      const email = document.getElementById('newEmail').value.trim();
-      const name = document.getElementById('newName').value.trim();
+            handleCsvImport(event) {
+                const file = event.target.files[0];
+                if (!file) return;
 
-      if (!email) {
-        alert('Please enter an email address');
-        return;
-      }
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    this.importSubscribers(e.target.result);
+                };
+                reader.readAsText(file);
+            }
 
-      if (this.addSubscriber(email, name)) {
-        this.hideAddSubscriberForm();
-        this.render();
-      }
-    }
+            handleCreateCampaign(event) {
+                event.preventDefault();
+                
+                const title = document.getElementById('campaignTitle').value.trim();
+                const subject = document.getElementById('emailSubject').value.trim();
+                const content = document.getElementById('emailContent').value.trim();
+                
+                if (!title || !subject || !content) {
+                    alert('Please fill in all fields');
+                    return;
+                }
+                
+                this.createCampaign(title, subject, content);
+            }
 
-    handleCsvImport(event) {
-      const file = event.target.files[0];
-      if (!file) return;
+            handleEditCampaign(event) {
+                event.preventDefault();
+                
+                const title = document.getElementById('editCampaignTitle').value.trim();
+                const subject = document.getElementById('editEmailSubject').value.trim();
+                const content = document.getElementById('editEmailContent').value.trim();
+                
+                if (!title || !subject || !content) {
+                    alert('Please fill in all fields');
+                    return;
+                }
+                
+                this.updateCampaign(this.editingCampaign.id, { title, subject, content });
+                this.editingCampaign = null;
+                this.showView('campaigns');
+            }
 
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        this.importSubscribers(e.target.result);
-      };
-      reader.readAsText(file);
-    }
+            handleSettingsUpdate(event) {
+                event.preventDefault();
+                
+                const fromEmail = document.getElementById('fromEmail').value.trim();
+                
+                if (!fromEmail) {
+                    alert('Please enter a from email address');
+                    return;
+                }
+                
+                if (!fromEmail.includes('@')) {
+                    alert('Please enter a valid email address');
+                    return;
+                }
+                
+                this.updateSettings(fromEmail);
+            }
 
-    handleCreateCampaign(event) {
-      event.preventDefault();
+            editCampaign(id) {
+                this.editingCampaign = this.campaigns.find(c => c.id === id);
+                this.showView('edit-campaign');
+            }
 
-      const title = document.getElementById('campaignTitle').value.trim();
-      const subject = document.getElementById('emailSubject').value.trim();
-      const content = document.getElementById('emailContent').value.trim();
-
-      if (!title || !subject || !content) {
-        alert('Please fill in all fields');
-        return;
-      }
-
-      this.createCampaign(title, subject, content);
-    }
-
-    handleEditCampaign(event) {
-      event.preventDefault();
-
-      const title = document.getElementById('editCampaignTitle').value.trim();
-      const subject = document.getElementById('editEmailSubject').value.trim();
-      const content = document.getElementById('editEmailContent').value.trim();
-
-      if (!title || !subject || !content) {
-        alert('Please fill in all fields');
-        return;
-      }
-
-      this.updateCampaign(this.editingCampaign.id, { title, subject, content });
-      this.editingCampaign = null;
-      this.showView('campaigns');
-    }
-
-    editCampaign(id) {
-      this.editingCampaign = this.campaigns.find(c => c.id === id);
-      this.showView('edit-campaign');
-    }
-
-    previewCampaign(id) {
-      const campaign = this.campaigns.find(c => c.id === id);
-      if (!campaign) return;
-
-      const previewWindow = window.open('', '_blank', 'width=600,height=800');
-      previewWindow.document.write(`
+            previewCampaign(id) {
+                const campaign = this.campaigns.find(c => c.id === id);
+                if (!campaign) return;
+                
+                const previewWindow = window.open('', '_blank', 'width=600,height=800');
+                previewWindow.document.write(`
                     <html>
                         <head>
                             <title>Campaign Preview: ${campaign.title}</title>
                             <style>
-                                body { font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; padding: 20px; }
-                                .header { border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 20px; }
-                                .content { line-height: 1.6; }
-                                .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #666; }
+                                body { 
+                                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                                    line-height: 1.6;
+                                    color: #333;
+                                    margin: 0;
+                                    padding: 20px;
+                                    background-color: #f8f9fa;
+                                }
+                                .container {
+                                    max-width: 600px;
+                                    margin: 0 auto;
+                                    background-color: #ffffff;
+                                    border-radius: 8px;
+                                    overflow: hidden;
+                                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                                }
+                                .header {
+                                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                                    color: white;
+                                    padding: 30px 20px;
+                                    text-align: center;
+                                }
+                                .content { padding: 30px 20px; }
+                                .footer { 
+                                    background-color: #f8f9fa;
+                                    padding: 20px;
+                                    text-align: center;
+                                    border-top: 1px solid #e2e8f0;
+                                    font-size: 12px;
+                                    color: #718096;
+                                }
                             </style>
                         </head>
                         <body>
-                            <div class="header">
-                                <h1>${campaign.subject}</h1>
-                                <p><strong>From:</strong> Your Newsletter</p>
-                            </div>
-                            <div class="content">
-                                ${campaign.content.replace(/\n/g, '<br>')}
-                            </div>
-                            <div class="footer">
-                                <p>This is a preview of your campaign. Actual emails will include unsubscribe links.</p>
+                            <div class="container">
+                                <div class="header">
+                                    <h1>${campaign.subject}</h1>
+                                </div>
+                                <div class="content">
+                                    ${campaign.content.replace(/\n/g, '<br>')}
+                                </div>
+                                <div class="footer">
+                                    <p>This is a preview. Actual emails will include unsubscribe links.</p>
+                                    <p>From: ${this.fromEmail}</p>
+                                </div>
                             </div>
                         </body>
                     </html>
                 `);
-      previewWindow.document.close();
-    }
-  }
+                previewWindow.document.close();
+            }
 
-  // Initialize the app
-  const app = new EmailCampaignApp();
+            attachEventListeners() {
+                // This method is called after render
+            }
+        }
 
-  // Initialize Lucide icons after DOM is ready
-  document.addEventListener('DOMContentLoaded', function() {
-    if (typeof lucide !== 'undefined') {
-      lucide.createIcons();
-    }
-  });
-
-  // Re-initialize icons after each render
-  const originalRender = app.render;
-  app.render = function() {
-    originalRender.call(this);
-    setTimeout(() => {
-      if (typeof lucide !== 'undefined') {
-        lucide.createIcons();
-      }
-    }, 0);
-  };
-</script>
+        // Initialize the app
+        const app = new EmailCampaignApp();
+        
+        // Make app globally available for onclick handlers
+        window.app = app;
+    </script>
 </body>
 </html>
