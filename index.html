@@ -15,11 +15,39 @@
         // Initialize Clerk
         import { Clerk } from 'https://cdn.jsdelivr.net/npm/@clerk/clerk-js@4/dist/clerk.browser.js';
 
-        // Load Clerk configuration
-        const configResponse = await fetch('/api/config');
-        const config = await configResponse.json();
-        const clerk = new Clerk(config.clerkPublishableKey);
-        await clerk.load();
+       // Load Clerk configuration with error handling
+let clerk;
+try {
+  const configResponse = await fetch('/api/config');
+  if (!configResponse.ok) {
+    throw new Error('Failed to load config');
+  }
+  const config = await configResponse.json();
+  
+  if (!config.clerkPublishableKey) {
+    throw new Error('Clerk publishable key not found');
+  }
+  
+  clerk = new Clerk(config.clerkPublishableKey);
+  await clerk.load();
+} catch (error) {
+  console.error('Failed to initialize Clerk:', error);
+  // Show error message to user
+  document.getElementById('app').innerHTML = `
+    <div style="padding: 40px; text-align: center; font-family: Arial, sans-serif;">
+      <h2>Configuration Error</h2>
+      <p>Unable to load authentication. Please check:</p>
+      <ul style="text-align: left; max-width: 400px; margin: 0 auto;">
+        <li>Clerk environment variables are set in Vercel</li>
+        <li>The API endpoints are deployed</li>
+      </ul>
+      <p style="margin-top: 20px; font-size: 12px; color: #666;">
+        Error: ${error.message}
+      </p>
+    </div>
+  `;
+  throw error;
+}
 
         // Email Campaign Manager App
         class EmailCampaignApp {
