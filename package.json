@@ -1,7 +1,27 @@
 {
   "name": "email-campaign-manager",
   "version": "1.0.0",
+  "description": "Email campaign and newsletter management application",
+  "main": "index.html",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo 'No build step required'",
+    "start": "vercel dev"
+  },
   "dependencies": {
-    "resend": "^2.1.0"
-  }
+    "resend": "^2.1.0",
+    "@clerk/clerk-js": "^4.70.0"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "email",
+    "newsletter",
+    "campaign",
+    "marketing"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
 }
