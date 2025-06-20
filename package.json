@@ -1,5 +1,5 @@
 {
-  "name": "lumail-campaign-manager",
+  "name": "email-campaign-manager",
   "version": "1.0.0",
   "description": "Email campaign and newsletter management application",
   "main": "index.html",
@@ -9,10 +9,8 @@
     "start": "vercel dev"
   },
   "dependencies": {
-    "resend": "^3.0.0",
-    "@clerk/clerk-js": "^4.70.0"
+    "resend": "^3.0.0"
   },
-  "devDependencies": {},
   "engines": {
     "node": ">=18.0.0"
   },
