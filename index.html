@@ -7,55 +7,112 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.js"></script>
+    <style>
+        /* Mobile optimizations */
+        @media (max-width: 640px) {
+            .nav-btn {
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+            .mobile-scroll {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .mobile-card {
+                margin: 0 -1rem;
+                border-radius: 0;
+            }
+        }
+        
+        /* Prevent horizontal scroll */
+        body {
+            overflow-x: hidden;
+        }
+        
+        /* Better touch targets */
+        button, .btn {
+            min-height: 44px;
+            min-width: 44px;
+        }
+        
+        /* Smooth transitions */
+        .transition-all {
+            transition: all 0.2s ease-in-out;
+        }
+    </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
-    <div id="app"></div>
+    <div id="app">
+        <!-- Loading state -->
+        <div class="min-h-screen flex items-center justify-center">
+            <div class="text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p class="text-gray-600">Loading Email Campaign Manager...</p>
+            </div>
+        </div>
+    </div>
 
     <script type="module">
-        // Simple initialization without Clerk dependency
-        let clerk = null;
-
-        // Email Campaign Manager App
+        // Email Campaign Manager App - Mobile Optimized
         class EmailCampaignApp {
             constructor() {
-                this.clerk = clerk;
                 this.user = null;
                 this.subscribers = [];
                 this.campaigns = [];
                 this.currentView = 'dashboard';
                 this.editingCampaign = null;
-                this.fromEmail = 'newsletter@yourdomain.com'; // Default from email
+                this.fromEmail = 'newsletter@yourdomain.com';
+                console.log('Initializing Email Campaign App...');
                 this.init();
             }
 
             async init() {
-                // Always load data, regardless of auth state
+                console.log('App init started');
+                
+                // Always load data first
                 this.loadUserData();
                 
                 // Check for saved user session
                 const savedUser = localStorage.getItem('current_user');
                 if (savedUser) {
-                    this.user = JSON.parse(savedUser);
+                    try {
+                        this.user = JSON.parse(savedUser);
+                        console.log('User loaded from storage:', this.user.email);
+                    } catch (e) {
+                        console.error('Error parsing saved user:', e);
+                        localStorage.removeItem('current_user');
+                    }
                 }
                 
                 this.render();
                 this.attachEventListeners();
+                console.log('App initialization complete');
             }
 
             // Authentication methods
             showSignIn() {
-                document.getElementById('signin-form').classList.remove('hidden');
-                document.getElementById('signup-form').classList.add('hidden');
+                console.log('Showing sign in form');
+                const signinForm = document.getElementById('signin-form');
+                const signupForm = document.getElementById('signup-form');
+                if (signinForm && signupForm) {
+                    signinForm.classList.remove('hidden');
+                    signupForm.classList.add('hidden');
+                }
             }
 
             showSignUp() {
-                document.getElementById('signin-form').classList.add('hidden');
-                document.getElementById('signup-form').classList.remove('hidden');
+                console.log('Showing sign up form');
+                const signinForm = document.getElementById('signin-form');
+                const signupForm = document.getElementById('signup-form');
+                if (signinForm && signupForm) {
+                    signinForm.classList.add('hidden');
+                    signupForm.classList.remove('hidden');
+                }
             }
 
             handleSignIn() {
-                const email = document.getElementById('signin-email').value.trim();
-                const password = document.getElementById('signin-password').value;
+                const email = document.getElementById('signin-email')?.value.trim();
+                const password = document.getElementById('signin-password')?.value;
 
                 if (!email || !password) {
                     alert('Please enter both email and password');
@@ -76,15 +133,16 @@
                     localStorage.setItem('current_user', JSON.stringify(this.user));
                     this.loadUserData();
                     this.render();
+                    console.log('User signed in successfully');
                 } else {
                     alert('Invalid email or password');
                 }
             }
 
             handleSignUp() {
-                const email = document.getElementById('signup-email').value.trim();
-                const password = document.getElementById('signup-password').value;
-                const firstName = document.getElementById('signup-name').value.trim();
+                const email = document.getElementById('signup-email')?.value.trim();
+                const password = document.getElementById('signup-password')?.value;
+                const firstName = document.getElementById('signup-name')?.value.trim();
 
                 if (!email || !password) {
                     alert('Please enter both email and password');
@@ -108,7 +166,7 @@
                 const user = {
                     id: Date.now().toString(),
                     email,
-                    firstName,
+                    firstName: firstName || 'User',
                     password,
                     createdAt: new Date().toISOString()
                 };
@@ -130,12 +188,14 @@
             }
 
             enterDemoMode() {
+                console.log('Entering demo mode');
                 this.user = {
                     id: 'demo',
                     email: 'demo@example.com',
-                    firstName: 'Demo',
+                    firstName: 'Demo User',
                     emailAddresses: [{ emailAddress: 'demo@example.com' }]
                 };
+                localStorage.setItem('current_user', JSON.stringify(this.user));
                 this.loadUserData();
                 this.render();
             }
@@ -148,11 +208,12 @@
                 this.render();
             }
 
-            // Data persistence (simplified)
+            // Data persistence
             loadUserData() {
                 this.subscribers = JSON.parse(localStorage.getItem('subscribers') || '[]');
                 this.campaigns = JSON.parse(localStorage.getItem('campaigns') || '[]');
                 this.fromEmail = localStorage.getItem('fromEmail') || 'newsletter@yourdomain.com';
+                console.log(`Loaded ${this.subscribers.length} subscribers and ${this.campaigns.length} campaigns`);
             }
 
             saveData() {
@@ -173,6 +234,8 @@
             showView(view) {
                 this.currentView = view;
                 this.render();
+                // Scroll to top on mobile
+                window.scrollTo(0, 0);
             }
 
             // Subscriber management
@@ -196,9 +259,11 @@
             }
 
             removeSubscriber(id) {
-                this.subscribers = this.subscribers.filter(s => s.id !== id);
-                this.saveData();
-                this.render();
+                if (confirm('Are you sure you want to remove this subscriber?')) {
+                    this.subscribers = this.subscribers.filter(s => s.id !== id);
+                    this.saveData();
+                    this.render();
+                }
             }
 
             importSubscribers(csvText) {
@@ -245,9 +310,11 @@
             }
 
             deleteCampaign(id) {
-                this.campaigns = this.campaigns.filter(c => c.id !== id);
-                this.saveData();
-                this.render();
+                if (confirm('Are you sure you want to delete this campaign?')) {
+                    this.campaigns = this.campaigns.filter(c => c.id !== id);
+                    this.saveData();
+                    this.render();
+                }
             }
 
             async sendCampaign(id) {
@@ -314,16 +381,20 @@
             render() {
                 const app = document.getElementById('app');
                 
-                // Check if user is signed in (including from localStorage)
+                // Check if user is signed in
                 if (!this.user) {
                     const savedUser = localStorage.getItem('current_user');
                     if (savedUser) {
-                        this.user = JSON.parse(savedUser);
-                        this.loadUserData();
+                        try {
+                            this.user = JSON.parse(savedUser);
+                            this.loadUserData();
+                        } catch (e) {
+                            localStorage.removeItem('current_user');
+                        }
                     }
                 }
                 
-                // If still not signed in, show login page
+                // Show login page if not signed in
                 if (!this.user) {
                     app.innerHTML = this.getLoginPage();
                     this.initializeIcons();
@@ -336,43 +407,43 @@
 
             getLoginPage() {
                 return `
-                    <div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-                        <div class="max-w-md w-full space-y-8">
+                    <div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-4 px-4 sm:px-6 lg:px-8">
+                        <div class="max-w-md w-full space-y-6">
                             <div class="text-center">
-                                <h2 class="mt-6 text-3xl font-extrabold text-gray-900">
+                                <h2 class="text-2xl sm:text-3xl font-extrabold text-gray-900">
                                     Email Campaign Manager
                                 </h2>
                                 <p class="mt-2 text-sm text-gray-600">
-                                    Sign in to manage your email campaigns and newsletters
+                                    Manage your email campaigns and newsletters
                                 </p>
                             </div>
                             
-                            <div class="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+                            <div class="bg-white py-6 px-4 shadow-lg sm:rounded-lg sm:px-8 mobile-card">
                                 <!-- Sign In Form -->
                                 <div id="signin-form" class="space-y-6">
                                     <div>
-                                        <label for="signin-email" class="block text-sm font-medium text-gray-700">Email</label>
+                                        <label for="signin-email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
                                         <input id="signin-email" type="email" required 
-                                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                               class="w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
                                                placeholder="Enter your email">
                                     </div>
                                     
                                     <div>
-                                        <label for="signin-password" class="block text-sm font-medium text-gray-700">Password</label>
+                                        <label for="signin-password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
                                         <input id="signin-password" type="password" required 
-                                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                               class="w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
                                                placeholder="Enter your password">
                                     </div>
                                     
                                     <div class="space-y-4">
                                         <button onclick="app.handleSignIn()" 
-                                                class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                                                class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all">
                                             Sign In
                                         </button>
                                         
                                         <div class="text-center">
                                             <button type="button" onclick="app.showSignUp()" 
-                                                    class="text-sm text-indigo-600 hover:text-indigo-500">
+                                                    class="text-sm text-indigo-600 hover:text-indigo-500 underline">
                                                 Don't have an account? Sign up
                                             </button>
                                         </div>
@@ -382,35 +453,35 @@
                                 <!-- Sign Up Form (initially hidden) -->
                                 <div id="signup-form" class="space-y-6 hidden">
                                     <div>
-                                        <label for="signup-email" class="block text-sm font-medium text-gray-700">Email</label>
+                                        <label for="signup-email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
                                         <input id="signup-email" type="email" required 
-                                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                               class="w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
                                                placeholder="Enter your email">
                                     </div>
                                     
                                     <div>
-                                        <label for="signup-password" class="block text-sm font-medium text-gray-700">Password</label>
+                                        <label for="signup-password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
                                         <input id="signup-password" type="password" required 
-                                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                               class="w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
                                                placeholder="At least 6 characters">
                                     </div>
                                     
                                     <div>
-                                        <label for="signup-name" class="block text-sm font-medium text-gray-700">First Name (Optional)</label>
+                                        <label for="signup-name" class="block text-sm font-medium text-gray-700 mb-1">First Name (Optional)</label>
                                         <input id="signup-name" type="text" 
-                                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                               class="w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
                                                placeholder="Your first name">
                                     </div>
                                     
                                     <div class="space-y-4">
                                         <button onclick="app.handleSignUp()" 
-                                                class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                                                class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all">
                                             Create Account
                                         </button>
                                         
                                         <div class="text-center">
                                             <button type="button" onclick="app.showSignIn()" 
-                                                    class="text-sm text-indigo-600 hover:text-indigo-500">
+                                                    class="text-sm text-indigo-600 hover:text-indigo-500 underline">
                                                 Already have an account? Sign in
                                             </button>
                                         </div>
@@ -420,7 +491,7 @@
                                 <!-- Demo Access -->
                                 <div class="mt-6 pt-6 border-t border-gray-200">
                                     <button onclick="app.enterDemoMode()" 
-                                            class="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                                            class="w-full flex justify-center py-3 px-4 border border-gray-300 rounded-md shadow-sm text-base font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all">
                                         Continue as Demo User
                                     </button>
                                     <p class="mt-2 text-xs text-gray-500 text-center">Try the app without creating an account</p>
@@ -435,7 +506,7 @@
                 return `
                     <div class="min-h-screen bg-gray-50">
                         ${this.getHeader()}
-                        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                        <div class="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8">
                             ${this.getMainContent()}
                         </div>
                     </div>
@@ -444,34 +515,41 @@
 
             getHeader() {
                 return `
-                    <header class="bg-white shadow">
-                        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                            <div class="flex justify-between items-center py-6">
-                                <div class="flex items-center">
-                                    <h1 class="text-3xl font-bold text-gray-900">Email Campaign Manager</h1>
-                                    <span class="ml-4 text-sm text-gray-500">Welcome, ${this.user?.firstName || this.user?.emailAddresses[0]?.emailAddress}</span>
+                    <header class="bg-white shadow-sm">
+                        <div class="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
+                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center py-4 sm:py-6 space-y-4 sm:space-y-0">
+                                <div class="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0">
+                                    <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">
+                                        Email Campaign Manager
+                                    </h1>
+                                    <span class="text-xs sm:text-sm text-gray-500 sm:ml-4">
+                                        Welcome, ${this.user?.firstName || this.user?.emailAddresses[0]?.emailAddress}
+                                    </span>
                                 </div>
-                                <div class="flex items-center space-x-4">
-                                    <nav class="flex space-x-8">
+                                
+                                <div class="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
+                                    <!-- Mobile Navigation -->
+                                    <nav class="flex flex-wrap gap-2 sm:gap-4 lg:gap-8">
                                         <button onclick="app.showView('dashboard')" 
-                                                class="nav-btn ${this.currentView === 'dashboard' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}">
+                                                class="nav-btn px-3 py-2 text-sm font-medium rounded-md transition-all ${this.currentView === 'dashboard' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'}">
                                             Dashboard
                                         </button>
                                         <button onclick="app.showView('subscribers')" 
-                                                class="nav-btn ${this.currentView === 'subscribers' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}">
+                                                class="nav-btn px-3 py-2 text-sm font-medium rounded-md transition-all ${this.currentView === 'subscribers' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'}">
                                             Subscribers
                                         </button>
                                         <button onclick="app.showView('campaigns')" 
-                                                class="nav-btn ${this.currentView === 'campaigns' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}">
+                                                class="nav-btn px-3 py-2 text-sm font-medium rounded-md transition-all ${this.currentView === 'campaigns' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'}">
                                             Campaigns
                                         </button>
                                         <button onclick="app.showView('settings')" 
-                                                class="nav-btn ${this.currentView === 'settings' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}">
+                                                class="nav-btn px-3 py-2 text-sm font-medium rounded-md transition-all ${this.currentView === 'settings' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'}">
                                             Settings
                                         </button>
                                     </nav>
+                                    
                                     <button onclick="app.signOut()" 
-                                            class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors text-sm">
+                                            class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-all text-sm font-medium w-full sm:w-auto">
                                         Sign Out
                                     </button>
                                 </div>
@@ -500,69 +578,6 @@
                 }
             }
 
-            getSettingsView() {
-                return `
-                    <div class="bg-white shadow rounded-lg">
-                        <div class="px-4 py-5 sm:p-6">
-                            <h2 class="text-2xl font-bold text-gray-900 mb-6">Settings</h2>
-                            
-                            <form onsubmit="app.handleSettingsUpdate(event)" class="space-y-6">
-                                <div>
-                                    <label for="fromEmail" class="block text-sm font-medium text-gray-700 mb-2">
-                                        From Email Address
-                                    </label>
-                                    <input type="email" id="fromEmail" value="${this.fromEmail}" required
-                                           class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                           placeholder="newsletter@yourdomain.com">
-                                    <p class="mt-2 text-sm text-gray-500">
-                                        This email address will appear as the sender for all campaigns. Make sure it's verified in your email service provider.
-                                    </p>
-                                </div>
-
-                                <div class="bg-yellow-50 border border-yellow-200 rounded-md p-4">
-                                    <div class="flex">
-                                        <i data-lucide="alert-triangle" class="h-5 w-5 text-yellow-400 mr-2"></i>
-                                        <div>
-                                            <h3 class="text-sm font-medium text-yellow-800">Important:</h3>
-                                            <div class="mt-1 text-sm text-yellow-700">
-                                                <p>• Make sure this email is verified in your Resend dashboard</p>
-                                                <p>• Use a domain you own (not gmail, yahoo, etc.)</p>
-                                                <p>• Consider using a subdomain like mail.yourdomain.com</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="flex space-x-4">
-                                    <button type="submit" 
-                                            class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors">
-                                        Save Settings
-                                    </button>
-                                </div>
-                            </form>
-
-                            <div class="mt-8 pt-8 border-t border-gray-200">
-                                <h3 class="text-lg font-medium text-gray-900 mb-4">Account Information</h3>
-                                <div class="space-y-2">
-                                    <p class="text-sm text-gray-600">
-                                        <strong>Email:</strong> ${this.user?.emailAddresses[0]?.emailAddress}
-                                    </p>
-                                    <p class="text-sm text-gray-600">
-                                        <strong>Name:</strong> ${this.user?.firstName || 'Not set'} ${this.user?.lastName || ''}
-                                    </p>
-                                    <p class="text-sm text-gray-600">
-                                        <strong>Subscribers:</strong> ${this.subscribers.length}
-                                    </p>
-                                    <p class="text-sm text-gray-600">
-                                        <strong>Campaigns:</strong> ${this.campaigns.length}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-
             getDashboard() {
                 const totalSubscribers = this.subscribers.length;
                 const activeSubscribers = this.subscribers.filter(s => s.status === 'active').length;
@@ -570,65 +585,65 @@
                 const sentCampaigns = this.campaigns.filter(c => c.status === 'sent').length;
 
                 return `
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                        <div class="bg-white overflow-hidden shadow rounded-lg">
-                            <div class="p-5">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+                        <div class="bg-white overflow-hidden shadow-sm rounded-lg">
+                            <div class="p-4 sm:p-5">
                                 <div class="flex items-center">
                                     <div class="flex-shrink-0">
-                                        <i data-lucide="users" class="h-6 w-6 text-gray-400"></i>
+                                        <i data-lucide="users" class="h-5 w-5 sm:h-6 sm:w-6 text-gray-400"></i>
                                     </div>
-                                    <div class="ml-5 w-0 flex-1">
+                                    <div class="ml-3 sm:ml-5 w-0 flex-1">
                                         <dl>
-                                            <dt class="text-sm font-medium text-gray-500 truncate">Total Subscribers</dt>
-                                            <dd class="text-lg font-medium text-gray-900">${totalSubscribers}</dd>
+                                            <dt class="text-xs sm:text-sm font-medium text-gray-500 truncate">Total Subscribers</dt>
+                                            <dd class="text-lg sm:text-xl font-medium text-gray-900">${totalSubscribers}</dd>
                                         </dl>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="bg-white overflow-hidden shadow rounded-lg">
-                            <div class="p-5">
+                        <div class="bg-white overflow-hidden shadow-sm rounded-lg">
+                            <div class="p-4 sm:p-5">
                                 <div class="flex items-center">
                                     <div class="flex-shrink-0">
-                                        <i data-lucide="user-check" class="h-6 w-6 text-green-400"></i>
+                                        <i data-lucide="user-check" class="h-5 w-5 sm:h-6 sm:w-6 text-green-400"></i>
                                     </div>
-                                    <div class="ml-5 w-0 flex-1">
+                                    <div class="ml-3 sm:ml-5 w-0 flex-1">
                                         <dl>
-                                            <dt class="text-sm font-medium text-gray-500 truncate">Active Subscribers</dt>
-                                            <dd class="text-lg font-medium text-gray-900">${activeSubscribers}</dd>
+                                            <dt class="text-xs sm:text-sm font-medium text-gray-500 truncate">Active Subscribers</dt>
+                                            <dd class="text-lg sm:text-xl font-medium text-gray-900">${activeSubscribers}</dd>
                                         </dl>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="bg-white overflow-hidden shadow rounded-lg">
-                            <div class="p-5">
+                        <div class="bg-white overflow-hidden shadow-sm rounded-lg">
+                            <div class="p-4 sm:p-5">
                                 <div class="flex items-center">
                                     <div class="flex-shrink-0">
-                                        <i data-lucide="mail" class="h-6 w-6 text-blue-400"></i>
+                                        <i data-lucide="mail" class="h-5 w-5 sm:h-6 sm:w-6 text-blue-400"></i>
                                     </div>
-                                    <div class="ml-5 w-0 flex-1">
+                                    <div class="ml-3 sm:ml-5 w-0 flex-1">
                                         <dl>
-                                            <dt class="text-sm font-medium text-gray-500 truncate">Total Campaigns</dt>
-                                            <dd class="text-lg font-medium text-gray-900">${totalCampaigns}</dd>
+                                            <dt class="text-xs sm:text-sm font-medium text-gray-500 truncate">Total Campaigns</dt>
+                                            <dd class="text-lg sm:text-xl font-medium text-gray-900">${totalCampaigns}</dd>
                                         </dl>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="bg-white overflow-hidden shadow rounded-lg">
-                            <div class="p-5">
+                        <div class="bg-white overflow-hidden shadow-sm rounded-lg">
+                            <div class="p-4 sm:p-5">
                                 <div class="flex items-center">
                                     <div class="flex-shrink-0">
-                                        <i data-lucide="send" class="h-6 w-6 text-purple-400"></i>
+                                        <i data-lucide="send" class="h-5 w-5 sm:h-6 sm:w-6 text-purple-400"></i>
                                     </div>
-                                    <div class="ml-5 w-0 flex-1">
+                                    <div class="ml-3 sm:ml-5 w-0 flex-1">
                                         <dl>
-                                            <dt class="text-sm font-medium text-gray-500 truncate">Sent Campaigns</dt>
-                                            <dd class="text-lg font-medium text-gray-900">${sentCampaigns}</dd>
+                                            <dt class="text-xs sm:text-sm font-medium text-gray-500 truncate">Sent Campaigns</dt>
+                                            <dd class="text-lg sm:text-xl font-medium text-gray-900">${sentCampaigns}</dd>
                                         </dl>
                                     </div>
                                 </div>
@@ -636,36 +651,36 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        <div class="bg-white shadow rounded-lg">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
+                        <div class="bg-white shadow-sm rounded-lg">
                             <div class="px-4 py-5 sm:p-6">
                                 <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Quick Actions</h3>
                                 <div class="space-y-3">
                                     <button onclick="app.showView('create-campaign')" 
-                                            class="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
+                                            class="w-full bg-blue-600 text-white px-4 py-3 rounded-md hover:bg-blue-700 transition-all font-medium">
                                         Create New Campaign
                                     </button>
                                     <button onclick="app.showView('subscribers')" 
-                                            class="w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
+                                            class="w-full bg-green-600 text-white px-4 py-3 rounded-md hover:bg-green-700 transition-all font-medium">
                                         Manage Subscribers
                                     </button>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="bg-white shadow rounded-lg">
+                        <div class="bg-white shadow-sm rounded-lg">
                             <div class="px-4 py-5 sm:p-6">
                                 <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Recent Campaigns</h3>
                                 <div class="space-y-3">
                                     ${this.campaigns.slice(-3).reverse().map(campaign => `
-                                        <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
-                                            <div>
-                                                <p class="font-medium">${campaign.title}</p>
-                                                <p class="text-sm text-gray-500">${this.getStatusBadge(campaign.status)}</p>
+                                        <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                            <div class="min-w-0 flex-1">
+                                                <p class="font-medium text-sm truncate">${campaign.title}</p>
+                                                <p class="text-xs text-gray-500">${this.getStatusBadge(campaign.status)}</p>
                                             </div>
-                                            <span class="text-sm text-gray-400">${new Date(campaign.dateCreated).toLocaleDateString()}</span>
+                                            <span class="text-xs text-gray-400 ml-2">${new Date(campaign.dateCreated).toLocaleDateString()}</span>
                                         </div>
-                                    `).join('') || '<p class="text-gray-500">No campaigns yet</p>'}
+                                    `).join('') || '<p class="text-gray-500 text-sm">No campaigns yet</p>'}
                                 </div>
                             </div>
                         </div>
@@ -675,17 +690,17 @@
 
             getSubscribersView() {
                 return `
-                    <div class="bg-white shadow rounded-lg">
+                    <div class="bg-white shadow-sm rounded-lg">
                         <div class="px-4 py-5 sm:p-6">
-                            <div class="flex justify-between items-center mb-6">
-                                <h2 class="text-2xl font-bold text-gray-900">Subscribers (${this.subscribers.length})</h2>
-                                <div class="flex space-x-3">
+                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 space-y-4 sm:space-y-0">
+                                <h2 class="text-xl sm:text-2xl font-bold text-gray-900">Subscribers (${this.subscribers.length})</h2>
+                                <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
                                     <button onclick="document.getElementById('csvFile').click()" 
-                                            class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
+                                            class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-all text-sm font-medium">
                                         Import CSV
                                     </button>
                                     <button onclick="app.showAddSubscriberForm()" 
-                                            class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
+                                            class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-all text-sm font-medium">
                                         Add Subscriber
                                     </button>
                                 </div>
@@ -695,54 +710,80 @@
 
                             <div id="addSubscriberForm" class="hidden mb-6 p-4 bg-gray-50 rounded-lg">
                                 <h3 class="text-lg font-medium mb-3">Add New Subscriber</h3>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <input type="email" id="newEmail" placeholder="Email address" required
-                                           class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                           class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base">
                                     <input type="text" id="newName" placeholder="Name (optional)"
-                                           class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                           class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base">
                                 </div>
-                                <div class="mt-4 flex space-x-3">
+                                <div class="mt-4 flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
                                     <button onclick="app.handleAddSubscriber()" 
-                                            class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+                                            class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-all">
                                         Add Subscriber
                                     </button>
                                     <button onclick="app.hideAddSubscriberForm()" 
-                                            class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400">
+                                            class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 transition-all">
                                         Cancel
                                     </button>
                                 </div>
                             </div>
 
-                            <div class="overflow-x-auto">
-                                <table class="min-w-full divide-y divide-gray-200">
-                                    <thead class="bg-gray-50">
-                                        <tr>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Added</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="bg-white divide-y divide-gray-200">
-                                        ${this.subscribers.map(subscriber => `
+                            <div class="mobile-scroll">
+                                <div class="hidden sm:block">
+                                    <table class="min-w-full divide-y divide-gray-200">
+                                        <thead class="bg-gray-50">
                                             <tr>
-                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${subscriber.email}</td>
-                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${subscriber.name || '-'}</td>
-                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(subscriber.dateAdded).toLocaleDateString()}</td>
-                                                <td class="px-6 py-4 whitespace-nowrap">
-                                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ${subscriber.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-                                                        ${subscriber.status}
-                                                    </span>
-                                                </td>
-                                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                                    <button onclick="app.removeSubscriber(${subscriber.id})" 
-                                                            class="text-red-600 hover:text-red-900">Remove</button>
-                                                </td>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Added</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                             </tr>
-                                        `).join('') || '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">No subscribers yet</td></tr>'}
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody class="bg-white divide-y divide-gray-200">
+                                            ${this.subscribers.map(subscriber => `
+                                                <tr>
+                                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${subscriber.email}</td>
+                                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${subscriber.name || '-'}</td>
+                                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(subscriber.dateAdded).toLocaleDateString()}</td>
+                                                    <td class="px-6 py-4 whitespace-nowrap">
+                                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ${subscriber.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                                            ${subscriber.status}
+                                                        </span>
+                                                    </td>
+                                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                        <button onclick="app.removeSubscriber(${subscriber.id})" 
+                                                                class="text-red-600 hover:text-red-900 transition-colors">Remove</button>
+                                                    </td>
+                                                </tr>
+                                            `).join('') || '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">No subscribers yet</td></tr>'}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                <!-- Mobile cards view -->
+                                <div class="sm:hidden space-y-4">
+                                    ${this.subscribers.map(subscriber => `
+                                        <div class="bg-gray-50 rounded-lg p-4">
+                                            <div class="flex justify-between items-start mb-2">
+                                                <div class="min-w-0 flex-1">
+                                                    <p class="font-medium text-sm text-gray-900 truncate">${subscriber.email}</p>
+                                                    <p class="text-xs text-gray-500">${subscriber.name || 'No name'}</p>
+                                                </div>
+                                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ${subscriber.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                                    ${subscriber.status}
+                                                </span>
+                                            </div>
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-xs text-gray-500">${new Date(subscriber.dateAdded).toLocaleDateString()}</span>
+                                                <button onclick="app.removeSubscriber(${subscriber.id})" 
+                                                        class="text-red-600 hover:text-red-900 text-sm font-medium transition-colors">
+                                                    Remove
+                                                </button>
+                                            </div>
+                                        </div>
+                                    `).join('') || '<p class="text-gray-500 text-center py-8">No subscribers yet</p>'}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -751,21 +792,21 @@
 
             getCampaignsView() {
                 return `
-                    <div class="bg-white shadow rounded-lg">
+                    <div class="bg-white shadow-sm rounded-lg">
                         <div class="px-4 py-5 sm:p-6">
-                            <div class="flex justify-between items-center mb-6">
-                                <h2 class="text-2xl font-bold text-gray-900">Campaigns (${this.campaigns.length})</h2>
+                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 space-y-4 sm:space-y-0">
+                                <h2 class="text-xl sm:text-2xl font-bold text-gray-900">Campaigns (${this.campaigns.length})</h2>
                                 <button onclick="app.showView('create-campaign')" 
-                                        class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
+                                        class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-all text-sm font-medium w-full sm:w-auto">
                                     Create Campaign
                                 </button>
                             </div>
 
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                                 ${this.campaigns.map(campaign => `
-                                    <div class="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                                    <div class="border border-gray-200 rounded-lg p-4 sm:p-6 hover:shadow-md transition-shadow">
                                         <div class="flex justify-between items-start mb-4">
-                                            <h3 class="text-lg font-semibold text-gray-900">${campaign.title}</h3>
+                                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 pr-2">${campaign.title}</h3>
                                             ${this.getStatusBadge(campaign.status)}
                                         </div>
                                         
@@ -779,29 +820,31 @@
                                             </div>
                                         ` : ''}
 
-                                        <div class="flex space-x-2">
+                                        <div class="flex flex-col space-y-2">
                                             ${campaign.status === 'draft' ? `
-                                                <button onclick="app.editCampaign(${campaign.id})" 
-                                                        class="flex-1 bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700">
-                                                    Edit
-                                                </button>
-                                                <button onclick="app.sendCampaign(${campaign.id})" 
-                                                        class="flex-1 bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700">
-                                                    Send
-                                                </button>
+                                                <div class="flex space-x-2">
+                                                    <button onclick="app.editCampaign(${campaign.id})" 
+                                                            class="flex-1 bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-all">
+                                                        Edit
+                                                    </button>
+                                                    <button onclick="app.sendCampaign(${campaign.id})" 
+                                                            class="flex-1 bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-all">
+                                                        Send
+                                                    </button>
+                                                </div>
                                             ` : `
                                                 <button onclick="app.previewCampaign(${campaign.id})" 
-                                                        class="flex-1 bg-gray-600 text-white px-3 py-2 rounded text-sm hover:bg-gray-700">
+                                                        class="w-full bg-gray-600 text-white px-3 py-2 rounded text-sm hover:bg-gray-700 transition-all">
                                                     Preview
                                                 </button>
                                             `}
                                             <button onclick="app.deleteCampaign(${campaign.id})" 
-                                                    class="bg-red-600 text-white px-3 py-2 rounded text-sm hover:bg-red-700">
+                                                    class="w-full bg-red-600 text-white px-3 py-2 rounded text-sm hover:bg-red-700 transition-all">
                                                 Delete
                                             </button>
                                         </div>
                                     </div>
-                                `).join('') || '<p class="text-gray-500">No campaigns yet. Create your first campaign!</p>'}
+                                `).join('') || '<p class="text-gray-500 col-span-full text-center py-8">No campaigns yet. Create your first campaign!</p>'}
                             </div>
                         </div>
                     </div>
@@ -810,22 +853,22 @@
 
             getCreateCampaignView() {
                 return `
-                    <div class="bg-white shadow rounded-lg">
+                    <div class="bg-white shadow-sm rounded-lg">
                         <div class="px-4 py-5 sm:p-6">
-                            <h2 class="text-2xl font-bold text-gray-900 mb-6">Create New Campaign</h2>
+                            <h2 class="text-xl sm:text-2xl font-bold text-gray-900 mb-6">Create New Campaign</h2>
                             
                             <form onsubmit="app.handleCreateCampaign(event)" class="space-y-6">
                                 <div>
                                     <label for="campaignTitle" class="block text-sm font-medium text-gray-700 mb-2">Campaign Title</label>
                                     <input type="text" id="campaignTitle" required
-                                           class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                           class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
                                            placeholder="e.g., Weekly Newsletter #1">
                                 </div>
 
                                 <div>
                                     <label for="emailSubject" class="block text-sm font-medium text-gray-700 mb-2">Email Subject</label>
                                     <input type="text" id="emailSubject" required
-                                           class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                           class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
                                            placeholder="Subject line your subscribers will see">
                                 </div>
 
@@ -838,17 +881,16 @@
                                             <br>• <code>&lt;p&gt;Paragraph&lt;/p&gt;</code> for paragraphs
                                             <br>• <code>&lt;strong&gt;Bold&lt;/strong&gt;</code> for bold text
                                             <br>• <code>&lt;a href="url"&gt;Link&lt;/a&gt;</code> for links
-                                            <br>• Or use **bold** for simple formatting
                                         </div>
                                     </div>
-                                    <textarea id="emailContent" rows="15" required
-                                              class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    <textarea id="emailContent" rows="12" required
+                                              class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
                                               placeholder="Write your email content here. You can use HTML tags for formatting."></textarea>
                                 </div>
 
                                 <div class="bg-green-50 border border-green-200 rounded-md p-4">
                                     <div class="flex">
-                                        <i data-lucide="info" class="h-5 w-5 text-green-400 mr-2"></i>
+                                        <i data-lucide="info" class="h-5 w-5 text-green-400 mr-2 flex-shrink-0"></i>
                                         <div>
                                             <h3 class="text-sm font-medium text-green-800">Email Features:</h3>
                                             <div class="mt-1 text-sm text-green-700">
@@ -861,13 +903,13 @@
                                     </div>
                                 </div>
 
-                                <div class="flex space-x-4">
+                                <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
                                     <button type="submit" 
-                                            class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors">
+                                            class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-all font-medium">
                                         Create Campaign
                                     </button>
                                     <button type="button" onclick="app.showView('campaigns')" 
-                                            class="bg-gray-300 text-gray-700 px-6 py-2 rounded-md hover:bg-gray-400 transition-colors">
+                                            class="bg-gray-300 text-gray-700 px-6 py-2 rounded-md hover:bg-gray-400 transition-all font-medium">
                                         Cancel
                                     </button>
                                 </div>
@@ -882,40 +924,103 @@
                 if (!campaign) return this.getCampaignsView();
 
                 return `
-                    <div class="bg-white shadow rounded-lg">
+                    <div class="bg-white shadow-sm rounded-lg">
                         <div class="px-4 py-5 sm:p-6">
-                            <h2 class="text-2xl font-bold text-gray-900 mb-6">Edit Campaign</h2>
+                            <h2 class="text-xl sm:text-2xl font-bold text-gray-900 mb-6">Edit Campaign</h2>
                             
                             <form onsubmit="app.handleEditCampaign(event)" class="space-y-6">
                                 <div>
                                     <label for="editCampaignTitle" class="block text-sm font-medium text-gray-700 mb-2">Campaign Title</label>
                                     <input type="text" id="editCampaignTitle" value="${campaign.title}" required
-                                           class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                           class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base">
                                 </div>
 
                                 <div>
                                     <label for="editEmailSubject" class="block text-sm font-medium text-gray-700 mb-2">Email Subject</label>
                                     <input type="text" id="editEmailSubject" value="${campaign.subject}" required
-                                           class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                           class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base">
                                 </div>
 
                                 <div>
                                     <label for="editEmailContent" class="block text-sm font-medium text-gray-700 mb-2">Email Content</label>
-                                    <textarea id="editEmailContent" rows="15" required
-                                              class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">${campaign.content}</textarea>
+                                    <textarea id="editEmailContent" rows="12" required
+                                              class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base">${campaign.content}</textarea>
                                 </div>
 
-                                <div class="flex space-x-4">
+                                <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
                                     <button type="submit" 
-                                            class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors">
+                                            class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-all font-medium">
                                         Update Campaign
                                     </button>
                                     <button type="button" onclick="app.showView('campaigns')" 
-                                            class="bg-gray-300 text-gray-700 px-6 py-2 rounded-md hover:bg-gray-400 transition-colors">
+                                            class="bg-gray-300 text-gray-700 px-6 py-2 rounded-md hover:bg-gray-400 transition-all font-medium">
                                         Cancel
                                     </button>
                                 </div>
                             </form>
+                        </div>
+                    </div>
+                `;
+            }
+
+            getSettingsView() {
+                return `
+                    <div class="bg-white shadow-sm rounded-lg">
+                        <div class="px-4 py-5 sm:p-6">
+                            <h2 class="text-xl sm:text-2xl font-bold text-gray-900 mb-6">Settings</h2>
+                            
+                            <form onsubmit="app.handleSettingsUpdate(event)" class="space-y-6">
+                                <div>
+                                    <label for="fromEmail" class="block text-sm font-medium text-gray-700 mb-2">
+                                        From Email Address
+                                    </label>
+                                    <input type="email" id="fromEmail" value="${this.fromEmail}" required
+                                           class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                                           placeholder="newsletter@yourdomain.com">
+                                    <p class="mt-2 text-sm text-gray-500">
+                                        This email address will appear as the sender for all campaigns.
+                                    </p>
+                                </div>
+
+                                <div class="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                                    <div class="flex">
+                                        <i data-lucide="alert-triangle" class="h-5 w-5 text-yellow-400 mr-2 flex-shrink-0"></i>
+                                        <div>
+                                            <h3 class="text-sm font-medium text-yellow-800">Important:</h3>
+                                            <div class="mt-1 text-sm text-yellow-700">
+                                                <p>• Make sure this email is verified in your Resend dashboard</p>
+                                                <p>• Use a domain you own (not gmail, yahoo, etc.)</p>
+                                                <p>• Consider using a subdomain like mail.yourdomain.com</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <button type="submit" 
+                                            class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-all font-medium">
+                                        Save Settings
+                                    </button>
+                                </div>
+                            </form>
+
+                            <div class="mt-8 pt-8 border-t border-gray-200">
+                                <h3 class="text-lg font-medium text-gray-900 mb-4">Account Information</h3>
+                                <div class="space-y-2">
+                                    <p class="text-sm text-gray-600">
+                                        <strong>Email:</strong> ${this.user?.emailAddresses[0]?.emailAddress}
+                                    </p>
+                                    <p class="text-sm text-gray-600">
+                                        <strong>Name:</strong> ${this.user?.firstName || 'Not set'}
+                                    </p>
+                                    <p class="text-sm text-gray-600">
+                                        <strong>Subscribers:</strong> ${this.subscribers.length}
+                                    </p>
+                                    <p class="text-sm text-gray-600">
+                                        <strong>Campaigns:</strong> ${this.campaigns.length}
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -929,12 +1034,11 @@
                 };
                 
                 const config = statusConfig[status] || statusConfig['draft'];
-                return `<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ${config.color}">${config.text}</span>`;
+                return `<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ${config.color} flex-shrink-0">${config.text}</span>`;
             }
 
             // Event handlers
             initializeIcons() {
-                // Initialize Lucide icons
                 setTimeout(() => {
                     if (typeof lucide !== 'undefined') {
                         lucide.createIcons();
@@ -943,18 +1047,27 @@
             }
 
             showAddSubscriberForm() {
-                document.getElementById('addSubscriberForm').classList.remove('hidden');
+                const form = document.getElementById('addSubscriberForm');
+                if (form) {
+                    form.classList.remove('hidden');
+                    document.getElementById('newEmail')?.focus();
+                }
             }
 
             hideAddSubscriberForm() {
-                document.getElementById('addSubscriberForm').classList.add('hidden');
-                document.getElementById('newEmail').value = '';
-                document.getElementById('newName').value = '';
+                const form = document.getElementById('addSubscriberForm');
+                if (form) {
+                    form.classList.add('hidden');
+                    const emailInput = document.getElementById('newEmail');
+                    const nameInput = document.getElementById('newName');
+                    if (emailInput) emailInput.value = '';
+                    if (nameInput) nameInput.value = '';
+                }
             }
 
             handleAddSubscriber() {
-                const email = document.getElementById('newEmail').value.trim();
-                const name = document.getElementById('newName').value.trim();
+                const email = document.getElementById('newEmail')?.value.trim();
+                const name = document.getElementById('newName')?.value.trim();
                 
                 if (!email) {
                     alert('Please enter an email address');
@@ -981,9 +1094,9 @@
             handleCreateCampaign(event) {
                 event.preventDefault();
                 
-                const title = document.getElementById('campaignTitle').value.trim();
-                const subject = document.getElementById('emailSubject').value.trim();
-                const content = document.getElementById('emailContent').value.trim();
+                const title = document.getElementById('campaignTitle')?.value.trim();
+                const subject = document.getElementById('emailSubject')?.value.trim();
+                const content = document.getElementById('emailContent')?.value.trim();
                 
                 if (!title || !subject || !content) {
                     alert('Please fill in all fields');
@@ -996,9 +1109,9 @@
             handleEditCampaign(event) {
                 event.preventDefault();
                 
-                const title = document.getElementById('editCampaignTitle').value.trim();
-                const subject = document.getElementById('editEmailSubject').value.trim();
-                const content = document.getElementById('editEmailContent').value.trim();
+                const title = document.getElementById('editCampaignTitle')?.value.trim();
+                const subject = document.getElementById('editEmailSubject')?.value.trim();
+                const content = document.getElementById('editEmailContent')?.value.trim();
                 
                 if (!title || !subject || !content) {
                     alert('Please fill in all fields');
@@ -1013,7 +1126,7 @@
             handleSettingsUpdate(event) {
                 event.preventDefault();
                 
-                const fromEmail = document.getElementById('fromEmail').value.trim();
+                const fromEmail = document.getElementById('fromEmail')?.value.trim();
                 
                 if (!fromEmail) {
                     alert('Please enter a from email address');
@@ -1042,6 +1155,7 @@
                     <html>
                         <head>
                             <title>Campaign Preview: ${campaign.title}</title>
+                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
                             <style>
                                 body { 
                                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -1074,6 +1188,10 @@
                                     font-size: 12px;
                                     color: #718096;
                                 }
+                                @media (max-width: 640px) {
+                                    body { padding: 10px; }
+                                    .header, .content { padding: 20px 15px; }
+                                }
                             </style>
                         </head>
                         <body>
@@ -1101,6 +1219,7 @@
         }
 
         // Initialize the app
+        console.log('Starting Email Campaign Manager...');
         const app = new EmailCampaignApp();
         
         // Make app globally available for onclick handlers
