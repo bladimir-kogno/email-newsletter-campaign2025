@@ -8,6 +8,7 @@ class AuthManager {
             onUserChange: [],
             onLoadingChange: []
         };
+        this.isProductionMode = window.location.hostname !== 'localhost';
         
         this.initializeClerk();
     }
@@ -29,8 +30,16 @@ class AuthManager {
         } catch (error) {
             console.error('Failed to initialize Clerk:', error);
             this.setLoading(false);
-            // Fallback to demo mode if Clerk fails
-            this.enableDemoMode();
+            
+            // Fix #7: Only fallback to demo mode in development
+            if (!this.isProductionMode) {
+                console.warn('Clerk failed to load - enabling demo mode for development');
+                this.enableDemoMode();
+            } else {
+                // In production, show proper error message
+                this.notifyUserChange(null);
+                this.showAuthError('Authentication service unavailable. Please try again later.');
+            }
         }
     }
 
@@ -76,17 +85,47 @@ class AuthManager {
     }
 
     notifyUserChange(user) {
-        this.callbacks.onUserChange.forEach(callback => callback(user));
+        this.callbacks.onUserChange.forEach(callback => {
+            try {
+                callback(user);
+            } catch (error) {
+                console.error('Error in user change callback:', error);
+            }
+        });
     }
 
     notifyLoadingChange(loading) {
-        this.callbacks.onLoadingChange.forEach(callback => callback(loading));
+        this.callbacks.onLoadingChange.forEach(callback => {
+            try {
+                callback(loading);
+            } catch (error) {
+                console.error('Error in loading change callback:', error);
+            }
+        });
+    }
+
+    showAuthError(message) {
+        // Display error message in the UI
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-50';
+        errorDiv.innerHTML = `
+            <strong class="font-bold">Authentication Error</strong>
+            <span class="block sm:inline">${message}</span>
+        `;
+        document.body.appendChild(errorDiv);
+        
+        setTimeout(() => {
+            errorDiv.remove();
+        }, 10000);
     }
 
     // Authentication methods
     async signIn(email, password) {
         if (!this.clerk) {
-            throw new Error('Clerk not initialized');
+            return { 
+                success: false, 
+                error: 'Authentication service not available' 
+            };
         }
 
         try {
@@ -116,7 +155,10 @@ class AuthManager {
 
     async signUp(email, password, firstName) {
         if (!this.clerk) {
-            throw new Error('Clerk not initialized');
+            return { 
+                success: false, 
+                error: 'Authentication service not available' 
+            };
         }
 
         try {
@@ -152,7 +194,8 @@ class AuthManager {
 
     async signOut() {
         if (!this.clerk) {
-            console.warn('Clerk not initialized, cannot sign out');
+            console.warn('Clerk not initialized, clearing local state');
+            this.handleUserChange(null);
             return;
         }
 
@@ -160,6 +203,8 @@ class AuthManager {
             await this.clerk.signOut();
         } catch (error) {
             console.error('Sign out error:', error);
+            // Still clear local state even if sign out fails
+            this.handleUserChange(null);
         }
     }
 
