@@ -1,25 +1,30 @@
 {
-  "name": "email-campaign-manager",
+  "name": "lumail-campaign-manager",
   "version": "1.0.0",
-  "description": "Email campaign and newsletter management application",
+  "description": "Professional email campaign manager for @lumail.co.uk",
   "main": "index.html",
   "scripts": {
     "dev": "vercel dev",
-    "build": "echo 'No build step required'",
-    "start": "vercel dev"
+    "build": "echo 'Static site - no build needed'",
+    "start": "vercel dev",
+    "deploy": "vercel --prod"
   },
   "dependencies": {
-    "resend": "^3.0.0"
+    "resend": "^3.2.0"
   },
-  "engines": {
-    "node": ">=18.0.0"
+  "devDependencies": {
+    "@vercel/node": "^3.0.0"
   },
   "keywords": [
     "email",
-    "newsletter",
     "campaign",
-    "marketing"
+    "newsletter",
+    "marketing",
+    "lumail"
   ],
-  "author": "Your Name",
-  "license": "MIT"
+  "author": "Lumail Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
 }
