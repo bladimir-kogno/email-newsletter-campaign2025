@@ -1,3 +1,6 @@
+console.log("AuthManager loaded");
+class AuthManager {
+
 // Authentication Module using Clerk
 class AuthManager {
     constructor() {
@@ -248,3 +251,4 @@ class AuthManager {
 
 // Create global auth manager instance
 window.authManager = new AuthManager();
+}
