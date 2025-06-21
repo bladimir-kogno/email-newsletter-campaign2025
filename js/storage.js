@@ -11,13 +11,15 @@ class StorageManager {
 
     // Get storage key with user prefix
     getUserKey(key) {
+        // Fix #3: Return a demo key if no user is set instead of throwing error
         if (!this.currentUserId) {
-            throw new Error('No current user set for storage operations');
+            console.warn('No current user set for storage operations, using demo mode');
+            return `${this.prefix}demo_${key}`;
         }
         return `${this.prefix}${this.currentUserId}_${key}`;
     }
 
-    // Generic storage methods
+    // Generic storage methods with better error handling
     setItem(key, value) {
         try {
             const userKey = this.getUserKey(key);
@@ -25,17 +27,29 @@ class StorageManager {
             return true;
         } catch (error) {
             console.error('Error saving to localStorage:', error);
-            return false;
+            // Fallback to session storage if localStorage fails
+            try {
+                sessionStorage.setItem(userKey, JSON.stringify(value));
+                return true;
+            } catch (sessionError) {
+                console.error('Error saving to sessionStorage:', sessionError);
+                return false;
+            }
         }
     }
 
     getItem(key, defaultValue = null) {
         try {
             const userKey = this.getUserKey(key);
-            const item = localStorage.getItem(userKey);
+            // Try localStorage first
+            let item = localStorage.getItem(userKey);
+            if (!item) {
+                // Fallback to sessionStorage
+                item = sessionStorage.getItem(userKey);
+            }
             return item ? JSON.parse(item) : defaultValue;
         } catch (error) {
-            console.error('Error reading from localStorage:', error);
+            console.error('Error reading from storage:', error);
             return defaultValue;
         }
     }
@@ -44,9 +58,10 @@ class StorageManager {
         try {
             const userKey = this.getUserKey(key);
             localStorage.removeItem(userKey);
+            sessionStorage.removeItem(userKey);
             return true;
         } catch (error) {
-            console.error('Error removing from localStorage:', error);
+            console.error('Error removing from storage:', error);
             return false;
         }
     }
@@ -249,48 +264,56 @@ class StorageManager {
         ];
 
         keysToRemove.forEach(key => {
-            this.removeItem(key);
+            try {
+                this.removeItem(key);
+            } catch (error) {
+                console.error(`Error removing ${key}:`, error);
+            }
         });
     }
 
     // Migration and data integrity
     migrateData() {
-        // Handle data structure changes in future versions
-        const subscribers = this.getSubscribers();
-        const campaigns = this.getCampaigns();
-        
-        // Example migration: ensure all subscribers have required fields
-        const migratedSubscribers = subscribers.map(subscriber => ({
-            id: subscriber.id || Date.now(),
-            email: subscriber.email,
-            name: subscriber.name || '',
-            dateAdded: subscriber.dateAdded || new Date().toISOString(),
-            status: subscriber.status || 'active',
-            tags: subscriber.tags || [],
-            customFields: subscriber.customFields || {}
-        }));
+        try {
+            // Handle data structure changes in future versions
+            const subscribers = this.getSubscribers();
+            const campaigns = this.getCampaigns();
+            
+            // Example migration: ensure all subscribers have required fields
+            const migratedSubscribers = subscribers.map(subscriber => ({
+                id: subscriber.id || Date.now() + Math.random(),
+                email: subscriber.email,
+                name: subscriber.name || '',
+                dateAdded: subscriber.dateAdded || new Date().toISOString(),
+                status: subscriber.status || 'active',
+                tags: subscriber.tags || [],
+                customFields: subscriber.customFields || {}
+            }));
 
-        // Example migration: ensure all campaigns have required fields
-        const migratedCampaigns = campaigns.map(campaign => ({
-            id: campaign.id || Date.now(),
-            title: campaign.title || 'Untitled Campaign',
-            subject: campaign.subject || '',
-            content: campaign.content || '',
-            htmlContent: campaign.htmlContent || '',
-            dateCreated: campaign.dateCreated || new Date().toISOString(),
-            status: campaign.status || 'draft',
-            targetAudience: campaign.targetAudience || 'all',
-            selectedSubscribers: campaign.selectedSubscribers || [],
-            sentCount: campaign.sentCount || 0,
-            openCount: campaign.openCount || 0,
-            clickCount: campaign.clickCount || 0,
-            bounceCount: campaign.bounceCount || 0,
-            unsubscribeCount: campaign.unsubscribeCount || 0,
-            metadata: campaign.metadata || {}
-        }));
+            // Example migration: ensure all campaigns have required fields
+            const migratedCampaigns = campaigns.map(campaign => ({
+                id: campaign.id || Date.now() + Math.random(),
+                title: campaign.title || 'Untitled Campaign',
+                subject: campaign.subject || '',
+                content: campaign.content || '',
+                htmlContent: campaign.htmlContent || '',
+                dateCreated: campaign.dateCreated || new Date().toISOString(),
+                status: campaign.status || 'draft',
+                targetAudience: campaign.targetAudience || 'all',
+                selectedSubscribers: campaign.selectedSubscribers || [],
+                sentCount: campaign.sentCount || 0,
+                openCount: campaign.openCount || 0,
+                clickCount: campaign.clickCount || 0,
+                bounceCount: campaign.bounceCount || 0,
+                unsubscribeCount: campaign.unsubscribeCount || 0,
+                metadata: campaign.metadata || {}
+            }));
 
-        this.setSubscribers(migratedSubscribers);
-        this.setCampaigns(migratedCampaigns);
+            this.setSubscribers(migratedSubscribers);
+            this.setCampaigns(migratedCampaigns);
+        } catch (error) {
+            console.error('Error during data migration:', error);
+        }
     }
 }
 
