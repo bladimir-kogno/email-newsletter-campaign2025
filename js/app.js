@@ -550,6 +550,3 @@ class EmailCampaignApp {
         `;
     }
 }
-
-// Make app globally available for event handlers
-window.app = null;
