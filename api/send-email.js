@@ -139,7 +139,7 @@ export default async function handler(req, res) {
         <div class="email-container">
           <div class="email-header">
             <h1 style="margin: 0; font-size: 24px;">${subject}</h1>
-            <p style="margin: 10px 0 0 0; opacity: 0.9;">LUMail Newsletter</p>
+            <p style="margin: 10px 0 0 0; opacity: 0.9;">Lumail Newsletter</p>
           </div>
           <div class="email-content">
             ${content}
@@ -151,7 +151,7 @@ export default async function handler(req, res) {
                 Unsubscribe from this list
               </a>
             </p>
-            <p style="margin: 10px 0 0 0;">© 2025 LUMail. All rights reserved.</p>
+            <p style="margin: 10px 0 0 0;">© 2025 Lumail. All rights reserved.</p>
           </div>
         </div>
       </body>
