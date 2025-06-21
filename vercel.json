@@ -1,5 +1,43 @@
 {
-  "buildCommand": "echo 'No build step required'",
-  "outputDirectory": ".",
-  "installCommand": "echo 'No install step required'"
+  "version": 2,
+  "functions": {
+    "api/send-email.js": {
+      "runtime": "@vercel/node@3.0.0"
+    }
+  },
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, PUT, DELETE, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Content-Type, Authorization"
+        }
+      ]
+    }
+  ],
+  "env": {
+    "RESEND_API_KEY": "@resend-api-key",
+    "CLERK_PUBLISHABLE_KEY": "@clerk-publishable-key",
+    "CLERK_SECRET_KEY": "@clerk-secret-key",
+    "NEXT_PUBLIC_APP_URL": "@app-url"
+  }
 }
