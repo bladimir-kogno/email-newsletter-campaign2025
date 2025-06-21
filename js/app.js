@@ -71,6 +71,90 @@ class EmailCampaignApp {
             let result;
             if (this.isAuthMode === 'signin') {
                 result = await window.authManager.signIn(email, password);
+            } else {
+                if (!firstName) {
+                    this.showAlert('Please enter your first name', 'error');
+                    return;
+                }
+                result = await window.authManager.signUp(email, password, firstName);
+            }
+
+            if (result.success) {
+                // Success is handled by the user change event
+            } else {
+                this.showAlert(result.error, 'error');
+            }
+        } catch (error) {
+            console.error('Authentication error:', error);
+            this.showAlert('Authentication failed. Please try again.', 'error');
+        } finally {
+            submitButton.textContent = originalText;
+            submitButton.disabled = false;
+        }
+    }
+
+    toggleAuthMode() {
+        this.isAuthMode = this.isAuthMode === 'signin' ? 'signup' : 'signin';
+        this.updateAuthForm();
+    }
+
+    updateAuthForm() {
+        const firstNameContainer = document.getElementById('firstName-container');
+        const submitButton = document.getElementById('auth-submit');
+        const toggleButton = document.getElementById('auth-toggle');
+
+        if (this.isAuthMode === 'signup') {
+            firstNameContainer?.classList.remove('hidden');
+            if (submitButton) submitButton.textContent = 'Create Account';
+            if (toggleButton) toggleButton.textContent = 'Already have an account? Sign in';
+        } else {
+            firstNameContainer?.classList.add('hidden');
+            if (submitButton) submitButton.textContent = 'Sign In';
+            if (toggleButton) toggleButton.textContent = "Don't have an account? Sign up";
+        }
+    }
+
+    enableDemoMode() {
+        window.authManager.enableDemoMode();
+    }
+
+    async signOut() {
+        await window.authManager.signOut();
+    }
+
+    // Navigation
+    showView(view) {
+        this.currentView = view;
+        if (view === 'create-campaign') {
+            this.campaignStep = 1;
+            this.newCampaign = {
+                title: '',
+                subject: '',
+                content: '',
+                selectedSubscribers: []
+            };
+        }
+        this.render();
+        window.scrollTo(0, 0);
+    }
+
+    // Campaign Creation Flow
+    nextCampaignStep() {
+        try {
+            if (this.campaignStep === 1) {
+                const title = document.getElementById('campaignTitle')?.value.trim();
+                const subject = document.getElementById('emailSubject')?.value.trim();
+                const content = document.getElementById('emailContent')?.value.trim();
+                
+                if (!title || !subject || !content) {
+                    this.showAlert('Please fill in all fields', 'error');
+                    return;
+                }
+                
+                this.newCampaign.title = title;
+                this.newCampaign.subject = subject;
+                this.newCampaign.content = content;
+                this.campaignStep = 2;
             } else if (this.campaignStep === 2) {
                 if (this.newCampaign.selectedSubscribers.length === 0) {
                     this.showAlert('Please select at least one subscriber', 'error');
@@ -468,88 +552,4 @@ class EmailCampaignApp {
 }
 
 // Make app globally available for event handlers
-window.app = null; {
-                if (!firstName) {
-                    this.showAlert('Please enter your first name', 'error');
-                    return;
-                }
-                result = await window.authManager.signUp(email, password, firstName);
-            }
-
-            if (result.success) {
-                // Success is handled by the user change event
-            } else {
-                this.showAlert(result.error, 'error');
-            }
-        } catch (error) {
-            console.error('Authentication error:', error);
-            this.showAlert('Authentication failed. Please try again.', 'error');
-        } finally {
-            submitButton.textContent = originalText;
-            submitButton.disabled = false;
-        }
-    }
-
-    toggleAuthMode() {
-        this.isAuthMode = this.isAuthMode === 'signin' ? 'signup' : 'signin';
-        this.updateAuthForm();
-    }
-
-    updateAuthForm() {
-        const firstNameContainer = document.getElementById('firstName-container');
-        const submitButton = document.getElementById('auth-submit');
-        const toggleButton = document.getElementById('auth-toggle');
-
-        if (this.isAuthMode === 'signup') {
-            firstNameContainer?.classList.remove('hidden');
-            if (submitButton) submitButton.textContent = 'Create Account';
-            if (toggleButton) toggleButton.textContent = 'Already have an account? Sign in';
-        } else {
-            firstNameContainer?.classList.add('hidden');
-            if (submitButton) submitButton.textContent = 'Sign In';
-            if (toggleButton) toggleButton.textContent = "Don't have an account? Sign up";
-        }
-    }
-
-    enableDemoMode() {
-        window.authManager.enableDemoMode();
-    }
-
-    async signOut() {
-        await window.authManager.signOut();
-    }
-
-    // Navigation
-    showView(view) {
-        this.currentView = view;
-        if (view === 'create-campaign') {
-            this.campaignStep = 1;
-            this.newCampaign = {
-                title: '',
-                subject: '',
-                content: '',
-                selectedSubscribers: []
-            };
-        }
-        this.render();
-        window.scrollTo(0, 0);
-    }
-
-    // Campaign Creation Flow
-    nextCampaignStep() {
-        try {
-            if (this.campaignStep === 1) {
-                const title = document.getElementById('campaignTitle')?.value.trim();
-                const subject = document.getElementById('emailSubject')?.value.trim();
-                const content = document.getElementById('emailContent')?.value.trim();
-                
-                if (!title || !subject || !content) {
-                    this.showAlert('Please fill in all fields', 'error');
-                    return;
-                }
-                
-                this.newCampaign.title = title;
-                this.newCampaign.subject = subject;
-                this.newCampaign.content = content;
-                this.campaignStep = 2;
-            } else
+window.app = null;
