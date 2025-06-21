@@ -37,11 +37,16 @@
   <script src="./js/app.js" defer></script>
 
   <!-- Single, once-only init -->
-  <script defer>
-    window.addEventListener('DOMContentLoaded', () => {
-      console.log('All scripts loaded, initializing app…');
+ <!-- App Initialization -->
+<script defer>
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log('Initializing app...');
+    if (typeof EmailCampaignApp === 'function') {
       window.app = new EmailCampaignApp();
-    });
-  </script>
+    } else {
+      console.error('EmailCampaignApp not found!');
+    }
+  });
+</script>
 </body>
 </html>
