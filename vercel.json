@@ -45,6 +45,6 @@
     "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": "@clerk-publishable-key",
     "CLERK_SECRET_KEY": "@clerk-secret-key",
     "NEXT_PUBLIC_APP_URL": "@app-url",
-    "UNSUBSCRIBE_SECRET": "<some long random string>" 
+    "UNSUBSCRIBE_SECRET": "2whsbdru357409shsfkrur6759jdfjsku6@34#4" 
   }
 }
