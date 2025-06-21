@@ -1,5 +1,4 @@
 console.log("AuthManager loaded");
-class AuthManager {
 
 // Authentication Module using Clerk
 class AuthManager {
@@ -34,12 +33,10 @@ class AuthManager {
             console.error('Failed to initialize Clerk:', error);
             this.setLoading(false);
             
-            // Fix #7: Only fallback to demo mode in development
             if (!this.isProductionMode) {
                 console.warn('Clerk failed to load - enabling demo mode for development');
                 this.enableDemoMode();
             } else {
-                // In production, show proper error message
                 this.notifyUserChange(null);
                 this.showAuthError('Authentication service unavailable. Please try again later.');
             }
@@ -74,16 +71,13 @@ class AuthManager {
         this.notifyLoadingChange(loading);
     }
 
-    // Event system for components to listen to auth changes
     onUserChange(callback) {
         this.callbacks.onUserChange.push(callback);
-        // Call immediately with current state
         callback(this.user);
     }
 
     onLoadingChange(callback) {
         this.callbacks.onLoadingChange.push(callback);
-        // Call immediately with current state
         callback(this.isLoading);
     }
 
@@ -108,7 +102,6 @@ class AuthManager {
     }
 
     showAuthError(message) {
-        // Display error message in the UI
         const errorDiv = document.createElement('div');
         errorDiv.className = 'fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-50';
         errorDiv.innerHTML = `
@@ -122,13 +115,9 @@ class AuthManager {
         }, 10000);
     }
 
-    // Authentication methods
     async signIn(email, password) {
         if (!this.clerk) {
-            return { 
-                success: false, 
-                error: 'Authentication service not available' 
-            };
+            return { success: false, error: 'Authentication service not available' };
         }
 
         try {
@@ -149,19 +138,13 @@ class AuthManager {
             return { success: true };
         } catch (error) {
             console.error('Sign in error:', error);
-            return { 
-                success: false, 
-                error: error.errors?.[0]?.message || 'Sign in failed' 
-            };
+            return { success: false, error: error.errors?.[0]?.message || 'Sign in failed' };
         }
     }
 
     async signUp(email, password, firstName) {
         if (!this.clerk) {
-            return { 
-                success: false, 
-                error: 'Authentication service not available' 
-            };
+            return { success: false, error: 'Authentication service not available' };
         }
 
         try {
@@ -171,14 +154,9 @@ class AuthManager {
                 firstName: firstName,
             });
 
-            // If email verification is required
             if (this.clerk.client.signUp.status === 'missing_requirements') {
-                // Handle email verification flow here
                 console.log('Email verification required');
-                return { 
-                    success: false, 
-                    error: 'Please verify your email address' 
-                };
+                return { success: false, error: 'Please verify your email address' };
             }
 
             await this.clerk.setActive({
@@ -188,10 +166,7 @@ class AuthManager {
             return { success: true };
         } catch (error) {
             console.error('Sign up error:', error);
-            return { 
-                success: false, 
-                error: error.errors?.[0]?.message || 'Sign up failed' 
-            };
+            return { success: false, error: error.errors?.[0]?.message || 'Sign up failed' };
         }
     }
 
@@ -206,12 +181,10 @@ class AuthManager {
             await this.clerk.signOut();
         } catch (error) {
             console.error('Sign out error:', error);
-            // Still clear local state even if sign out fails
             this.handleUserChange(null);
         }
     }
 
-    // Demo mode for development/testing
     enableDemoMode() {
         console.log('Enabling demo mode');
         const demoUser = {
@@ -223,11 +196,9 @@ class AuthManager {
             imageUrl: null,
             isDemoMode: true
         };
-        
         this.handleUserChange(demoUser);
     }
 
-    // Utility methods
     isAuthenticated() {
         return !!this.user;
     }
@@ -249,6 +220,5 @@ class AuthManager {
     }
 }
 
-// Create global auth manager instance
+// Create global instance
 window.authManager = new AuthManager();
-}
